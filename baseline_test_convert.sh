@@ -1,0 +1,1 @@
+python -u baseline_test.py --model convert $* > baseline_convert.log 2>&1 &

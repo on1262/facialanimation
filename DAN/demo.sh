@@ -1,0 +1,1 @@
+python -u demo.py --image demo_img.jpg

@@ -1,0 +1,1 @@
+python -u baseline_test.py --model tf_emo_13 $* > baseline_le_0_2.log 2>&1 &

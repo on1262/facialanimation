@@ -1,0 +1,1 @@
+python -u utils/emo_curve_check.py --device 3 --video_path Visualize/emo_curve_source_video --output_folder Visualize/emo_curve_output

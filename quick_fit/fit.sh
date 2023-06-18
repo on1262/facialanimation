@@ -1,0 +1,1 @@
+nohup python -u fit.py > nohup.log 2>&1 &

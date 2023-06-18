@@ -1,0 +1,1 @@
+python test_emoca_on_images.py --input_folder demo_img.png --output_folder demo_folder

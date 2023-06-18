@@ -1,0 +1,1 @@
+nohup python -u run_nograd.py > run_nograd.log 2>&1 &

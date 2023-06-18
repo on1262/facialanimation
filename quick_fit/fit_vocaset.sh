@@ -1,0 +1,1 @@
+nohup python -u fit_vocaset.py > fit_vocaset.log 2>&1 &

@@ -1,0 +1,1 @@
+python -u baseline_test.py --model lstm_emo $* > baseline_le.log 2>&1 &

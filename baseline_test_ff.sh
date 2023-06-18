@@ -1,0 +1,1 @@
+python -u baseline_test.py --model faceformer_flame $* > baseline_ff.log 2>&1 &
