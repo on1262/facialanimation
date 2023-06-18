@@ -3,3 +3,7 @@ DECA/
 .vscode/
 dataset_cache/
 /DAN/
+*.bin
+*.csv
+*.ply
+*.vl
