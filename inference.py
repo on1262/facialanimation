@@ -15,7 +15,7 @@ from utils.interface import EMOCAModel, DANModel
 from dataset import TESTDataset, FACollate_fn, CREMADDataset
 from utils.emo_curve_check import plot_curve
 from utils.converter import convert_img, save_img
-from quick_fit.fit_utils import Mesh
+from fitting.fit_utils import Mesh
 from dataset import get_emo_label_from_name, get_emo_index
 from utils.converter import video2sequence, audio2tensor, video2wav
 

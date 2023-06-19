@@ -1,1 +1,0 @@
-nohup python -u run_revgrad.py > run_revgrad2.log 2>&1 &

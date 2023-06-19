@@ -2,10 +2,9 @@ import sys
 sys.path.append('/home/chenyutong/facialanimation')
 import os
 from DAN.networks.dan import DAN
-from GST.gstmodel import gst_model
 from EMOCABasic import DecaModule, save_images, FLAME
 from utils.converter import save_img
-from quick_fit.fit_utils import Mesh
+from fitting.fit_utils import Mesh
 from torchvision import transforms
 from PIL import Image
 from threading import Thread
@@ -253,33 +252,6 @@ class DANModel():
         # label = self.labels[ind_list]
         # label is not tensor but str
         return out
-
-class GSTModel():
-    def __init__(self, device):
-        self.device = device
-        print('loading GSTModel on ', self.device)
-        self.model = gst_model()
-        self.model.load_state_dict(torch.load('/home/chenyutong/facialanimation/GST/gst_state_dict.pth'), strict=False)
-        for p in self.model.parameters(recurse=True):
-            p.requires_grad = False
-        self.model = self.model.to(device)
-        self.model.eval()
-
-    """
-        input:
-            wav (Tensor): Speech waveform tensor (B, T_wav).
-            wav_len (Tensor): Speech length tensor (B,).
-        output:
-            style_ebd, (B, 512)
-    """
-    def inference(self, wav, wav_len, in_sr=16000):
-        # change sr to 24000
-        if in_sr != 24000:
-            assert(wav.dim() == 2 and wav_len.dim() == 1)
-            out_len = round(wav.size(-1) * 24000 / 16000)
-            wav_len = torch.round(wav_len / wav_len.max() * out_len).int()
-            wav = torch.nn.functional.interpolate(wav[None,...], (out_len))[0,...]
-        return self.model.forward(wav, wav_len)
 
 
 class FaceFormerConfig:

@@ -12,13 +12,13 @@ from datetime import datetime, date
 from utils.loss_func import ParamLossFunc, EmoTensorPredFunc, MouthConsistencyFunc
 from utils.grad_check import GradCheck
 from utils.converter import save_img, convert_img
-from quick_fit.fit_utils import Mesh
-from quick_fit.fit import approx_transform_mouth, get_mouth_landmark
+from fitting.fit_utils import Mesh
+from fitting.fit import approx_transform_mouth, get_mouth_landmark
 import importlib
 from threading import Thread, Event
 from queue import Queue
 from dataset import FACollate_fn, EnsembleDataset, zero_padding, BaselineVOCADataset
-from utils.interface import EMOCAModel, DANModel, GSTModel
+from utils.interface import EMOCAModel, DANModel
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from utils.scheduler import PlateauDecreaseScheduler
 from utils.mem_check import MemCheck
@@ -124,8 +124,6 @@ class Trainer():
             self.model.set_emoca(self.emoca) # register emoca
         else:
             self.emoca = None
-        if 'gst' in self.model_name:
-            self.gst = GSTModel(self.device)
         dataset_dev = self.emoca.device if self.emoca is not None else self.device
         self.dataset_train = EnsembleDataset(
             self.dataset_path, self.label_dict, return_domain=True, dataset_type='train',device=dataset_dev, emoca=self.emoca, debug=debug)
@@ -332,15 +330,15 @@ class Trainer():
         templates = {}
 
         with torch.no_grad():
-            for idx,test_data in enumerate(self.test_voca_dataset):
-                d = {'wav':test_data['wav'].to(self.device), 'code_dict':None , 'name':test_data['name'], 'seqs_len':test_data['seqs_len'],
-                    'flame_template':test_data['flame_template'], 'shapecode':test_data['shapecode'].to(self.device)}
+            for idx,train_data in enumerate(self.test_voca_dataset):
+                d = {'wav':train_data['wav'].to(self.device), 'code_dict':None , 'name':train_data['name'], 'seqs_len':train_data['seqs_len'],
+                    'flame_template':train_data['flame_template'], 'shapecode':train_data['shapecode'].to(self.device)}
                 d['emo_tensor_conf'] = ['no_use']
-                gt = test_data['verts']
+                gt = train_data['verts']
                 seq_len = gt.size(0)
                 params =  self.model.test_forward(d)['params'].squeeze(0) # 1, vertexm 3
                 codedict = {'shapecode':torch.zeros((params.size(0), 100), device=self.device), 'expcode':params[:,:50], 'posecode':params[:,50:]}
-                codedict['shapecode'] = test_data['shapecode'].to(self.device)
+                codedict['shapecode'] = train_data['shapecode'].to(self.device)
                 output = self.flame.forward(codedict)
                 output = torch.nn.functional.interpolate(output.unsqueeze(0).permute(0,2,1,3), size=(gt.size(0),3)).permute(0,2,1,3).squeeze(0)
                 
@@ -365,7 +363,7 @@ class Trainer():
                 test_max_loss += (seq_max_loss / seq_len)
                 test_avg_loss += (seq_avg_loss / seq_len)
                 if idx % 10 == 0:
-                    print('idx=',idx, 'mean loss=', test_avg_loss/(idx+1), 'max loss=', test_max_loss/(idx+1), 'name=', test_data['name'])
+                    print('idx=',idx, 'mean loss=', test_avg_loss/(idx+1), 'max loss=', test_max_loss/(idx+1), 'name=', train_data['name'])
         test_max_loss = test_max_loss / len(self.test_voca_dataset)
         test_avg_loss = test_avg_loss / len(self.test_voca_dataset)
         print(f'max loss={test_max_loss}, avg_loss={test_avg_loss}')
@@ -388,9 +386,9 @@ class Trainer():
         t_preload = Thread(target=self.preload, args=(self.device, convert_cuda_list, self.queue))
         t_preload.start()
         t_preload.join()
-        test_data = self.queue.get()
+        train_data = self.queue.get()
 
-        while test_data is not None:
+        while train_data is not None:
             self.mc1.log('iter-start')
             for opt in self.model.get_opt_list():
                 opt.zero_grad(set_to_none=True)
@@ -413,7 +411,7 @@ class Trainer():
                 #data['verts'] = torch.cat(data_verts, dim=0)
                 
             
-            out_dict = self.model.batch_forward(test_data) # forward
+            out_dict = self.model.batch_forward(train_data) # forward
             
             self.mc1.log('after-forward')
             self.mc2.log('after-forward-emoca')
@@ -429,7 +427,7 @@ class Trainer():
             
             self.mc1.log('before-cal-loss')
             
-            loss, loss_dict = self.get_loss_item(out_dict, test_data)
+            loss, loss_dict = self.get_loss_item(out_dict, train_data)
             self.mc1.log('after-cal-loss')
 
             for key in loss_dict.keys():
@@ -455,7 +453,7 @@ class Trainer():
             
             if self.debug == 0: # async
                 t_preload.join()
-            test_data = self.queue.get()
+            train_data = self.queue.get()
             idx_it += 1
             self.mc1.log('iter-end')
             if len(dataloader) >= 5 and idx_it % round(len(dataloader)/5) == 0 and idx_it != 0: # execute 5 times per epoch

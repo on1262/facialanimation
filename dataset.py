@@ -3,7 +3,7 @@ from utils.converter import video2sequence, audio2tensor, convert_img, video2wav
 from utils.detector import FANDetector
 from utils.check_distribution import check_params_distribution
 from utils.interface import EMOCAModel, DANModel
-from quick_fit.fit_utils import read_vl, Mesh
+from fitting.fit_utils import read_vl, Mesh
 import torch.nn.functional as F
 from torchvision.io import read_image
 from datetime import datetime
@@ -11,7 +11,6 @@ import torch
 import os
 from plyfile import PlyData
 import os.path as path
-import torch
 import json
 
 def get_emo_label_from_name(dataset_name, label_dict:dict, name):

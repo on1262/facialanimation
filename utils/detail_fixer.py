@@ -4,8 +4,8 @@ import sys, os
 from plyfile import PlyData, PlyElement
 import numpy as np
 sys.path.append('/home/chenyutong/facialanimation')
-from quick_fit.fit_utils import Mesh, get_mouth_landmark, get_landmark_idx
-from quick_fit.fit import Mesh, approx_transform, approx_transform_mouth
+from fitting.fit_utils import Mesh, get_mouth_landmark, get_landmark_idx
+from fitting.fit import Mesh, approx_transform, approx_transform_mouth
 import torch.multiprocessing as mp
 
 def normalize(vec):

@@ -1,9 +1,28 @@
-DECA/
-*/__pycache__/
+# folders
+3rd/DAN
+3rd/DECA
+3rd/EMOCA
+3rd/Faceformer
+3rd/VOCA
+3rd/wav2vec2
+
+3rd/EMOCABasic/demo_folder
+__pycache__/
 .vscode/
-dataset_cache/
-/DAN/
+datasets/
+
+# images, audios, videos, meshes, model weights and logs
+*.log
+*.pt
+*.png
+*.wav
+*.flv
+*.mp4
+
 *.bin
 *.csv
 *.ply
 *.vl
+*.F0
+*.npy
+*.npz
