@@ -1,1 +1,0 @@
-python -u baseline_test.py --model voca $* > baseline_voca.log 2>&1 &

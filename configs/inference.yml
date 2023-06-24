@@ -1,0 +1,60 @@
+---
+# test mode: [model, trailer, matrix, baseline_test]
+mode: model
+
+mode_conf:
+  model_name: tf_emo_4
+  baseline: ['voca', 'faceformer', 'convert']
+
+faceformer:
+  model_name: vocaset
+  dataset: vocaset
+  fps: 30
+  feature_dim: 64
+  period: 30
+  vertice_dim: 15069 # 5023*3=15069
+  train_subjects: "FaceTalk_170728_03272_TA FaceTalk_170904_00128_TA FaceTalk_170725_00137_TA FaceTalk_170915_00223_TA   FaceTalk_170811_03274_TA FaceTalk_170913_03279_TA FaceTalk_170904_03276_TA FaceTalk_170912_03278_TA"
+  val_subejects: "FaceTalk_170811_03275_TA FaceTalk_170908_03277_TA"
+  test_subjects: "FaceTalk_170809_00138_TA FaceTalk_170731_00024_TA"
+  condition: FaceTalk_170728_03272_TA
+
+dan:
+  emo_label: ['NEU', 'HAP', 'SAD', 'SUR', 'FEA', 'DIS', 'ANG']
+
+emoca:
+  default_light_code: [[3.1922e+00,  3.1756e+00,  3.1457e+00],
+        [-1.8626e-01, -1.8953e-01, -1.9047e-01],
+        [ 3.4422e-01,  3.5231e-01,  3.5370e-01],
+        [-4.4597e-01, -4.9592e-01, -5.7573e-01],
+        [ 3.5725e-03,  2.5994e-03,  2.4359e-03],
+        [-6.4677e-03, -6.8105e-03, -8.8068e-03],
+        [-1.4624e-01, -1.4130e-01, -1.4288e-01],
+        [ 1.7884e-01,  1.7035e-01,  1.5780e-01],
+        [ 3.4267e-01,  3.2843e-01,  3.1158e-01]]
+  default_cam_code: [10,0,0]
+  shape_len: 100
+  exp_len: 50
+
+infer_dataset: # generate a temporal dataset based on inference input
+  emo_set: {'ANG','DIS','FEA','HAP','NEU','SAD'}
+  video_ends: {'.mp4', '.flv'}
+  audio_ends: {'.wav'}
+  audio_sr: 16000
+  fps: 30
+  sample_configs: {
+    'hap_1' : 'video',
+    'ang_1' : 'video',
+    'test_1' : 'video',
+    'flyme2themoon_ori': 'video',
+    'flyme2themoon_2': 'emo-cls-tex',
+    'flyme2themoon_3': 'emo-ist-tex',
+    'AUD_faceformer_2': 'audio',
+    'AUD_faceformer_3': 'audio',
+    'AUD_earlier': 'emo-ist',
+    'AUD_voca_1':'audio',
+    'AUD_voca_2':'emo-cls',
+    'AUD_F6_01_cut':'audio',
+    'AUD_demo_2_happy' : 'aud-cls=HAP',
+    'AUD_demo_2_angry' : 'aud-cls=ANG',
+    'AUD_demo_2_sad' : 'aud-cls=SAD'
+  }

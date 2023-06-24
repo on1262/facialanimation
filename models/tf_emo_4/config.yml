@@ -1,0 +1,16 @@
+---
+emo_channels: 7
+params_channels: 56
+dp: 0.15
+out_norm: None
+
+lr_config:
+  scheduler: PlateauDecreaseScheduler
+  lr_coeff_list: [1, 1]
+  warmup_steps: 200
+  warmup_lr: 1.0e-3
+  warmup_enable_list: [True, True]
+  factor: 0.2
+  init_lr: 1.0e-4
+  min_lr: 1.0e-4
+  patience: 3

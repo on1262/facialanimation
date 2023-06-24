@@ -1,9 +1,10 @@
+from utils.config_loader import GBL_CONF, PATH
 from torch.utils.data import Dataset
 from utils.converter import video2sequence, audio2tensor, convert_img, video2wav
 from utils.detector import FANDetector
 from utils.check_distribution import check_params_distribution
 from utils.interface import EMOCAModel, DANModel
-from fitting.fit_utils import read_vl, Mesh
+from utils.fitting.fit_utils import read_vl, Mesh
 import torch.nn.functional as F
 from torchvision.io import read_image
 from datetime import datetime
@@ -124,15 +125,7 @@ def FACollate_fn(data_list:list, clip_max=True):
         result_dict['code_dict'] = \
             [{key:val[:result_dict['seqs_len'][idx],...] for key,val in codedict.items()} for idx, codedict in enumerate(result_dict['code_dict'])]
     else:
-        default_lightcode = torch.Tensor(data=[[3.1922e+00,  3.1756e+00,  3.1457e+00],
-        [-1.8626e-01, -1.8953e-01, -1.9047e-01],
-        [ 3.4422e-01,  3.5231e-01,  3.5370e-01],
-        [-4.4597e-01, -4.9592e-01, -5.7573e-01],
-        [ 3.5725e-03,  2.5994e-03,  2.4359e-03],
-        [-6.4677e-03, -6.8105e-03, -8.8068e-03],
-        [-1.4624e-01, -1.4130e-01, -1.4288e-01],
-        [ 1.7884e-01,  1.7035e-01,  1.5780e-01],
-        [ 3.4267e-01,  3.2843e-01,  3.1158e-01]])
+        default_lightcode = torch.Tensor(data=GBL_CONF['inference']['emoca']['default_light_code'])
 
         # generate default code_dict
         result_dict['code_dict'] = \
@@ -173,8 +166,7 @@ class CREMADDataset(Dataset):
     data(dict):
         keys: name, emo_label, wav, imgs
     """
-    def __init__(self, 
-        data_path, 
+    def __init__(self,
         label_dict:dict, 
         dataset_type='train', 
         device=torch.device('cuda:0'), 
@@ -191,11 +183,11 @@ class CREMADDataset(Dataset):
         self.vid_dir = vid_dir
         self.aud_dir = aud_dir
         self.fps = 30.0 # a bit lower than 30, but that does not matter
-        self.data_path = data_path # .../CREMAD
-        self.dict = {'ANG':'ANG','DIS':'DIS','FEA':'FEA','HAP':'HAP','NEU':'NEU','SAD':'SAD'}
-        self.bad_data = {'1076_MTI_NEU_XX', '1076_MTI_SAD_XX', '1064_TIE_SAD_XX', '1064_IEO_DIS_MD', '1004_DFA_FEA_XX','1047_IEO_SAD_LO','1047_IEO_FEA_LO'}
-        self.preloaded = path.exists(path.join(data_path, 'cremad_' + dataset_type + '.pt')) and debug == 0
-        if not self.preloaded:
+        self.data_path = PATH['dataset']['cremad']
+        self.dict = GBL_CONF['dataset']['cremad']['emo_label']
+        self.bad_data = GBL_CONF['dataset']['cremad']['bad_sample']
+        self.preloaded = path.exists(path.join(self.data_path, 'cremad_' + dataset_type + '.pt')) and debug == 0
+        if not self.preloaded: # dataset preprocessing
             self.fan = FANDetector(device=device)
             self.emoca = emoca if emoca is not None else EMOCAModel(device=device)
             self.dan = DANModel(device=device)
@@ -695,7 +687,7 @@ class LRS2Dataset(Dataset):
 
 
 class EnsembleDataset(Dataset):
-    def __init__(self, data_path, label_dict: dict, return_domain=False, dataset_type='train', device=torch.device('cuda:0'), emoca=None, debug=0):
+    def __init__(self, label_dict: dict, return_domain=False, dataset_type='train', device=torch.device('cuda:0'), emoca=None, debug=0):
         super(EnsembleDataset, self).__init__()
         self.return_domain = return_domain
         self.dataset_type = dataset_type

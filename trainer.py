@@ -5,6 +5,7 @@ import os
 from math import ceil
 import numpy as np
 import random
+from utils.config_loader import GBL_CONF, PATH
 from torch.utils.data import RandomSampler, SequentialSampler
 from utils.flexible_loader import FlexibleLoader
 import torch.nn as nn
@@ -12,8 +13,8 @@ from datetime import datetime, date
 from utils.loss_func import ParamLossFunc, EmoTensorPredFunc, MouthConsistencyFunc
 from utils.grad_check import GradCheck
 from utils.converter import save_img, convert_img
-from fitting.fit_utils import Mesh
-from fitting.fit import approx_transform_mouth, get_mouth_landmark
+from utils.fitting.fit_utils import Mesh
+from utils.fitting.fit import approx_transform_mouth, get_mouth_landmark
 import importlib
 from threading import Thread, Event
 from queue import Queue
@@ -21,7 +22,6 @@ from dataset import FACollate_fn, EnsembleDataset, zero_padding, BaselineVOCADat
 from utils.interface import EMOCAModel, DANModel
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from utils.scheduler import PlateauDecreaseScheduler
-from utils.mem_check import MemCheck
 from utils.balance_data import cal_hist
 from plyfile import PlyData
 from utils.interface import FLAMEModel
@@ -32,75 +32,50 @@ def vertices2nparray(vertex):
     return np.asarray([vertex['x'],vertex['y'],vertex['z']]).T
 
 class Trainer():
-    def __init__(self, 
-    imbalance_sample=True, 
-    load_path=None, 
-    save_path='/home/chenyutong/facialanimation/Model', 
-    wav2vec_path='/home/chenyutong/facialanimation/wav2vec2/pretrained_model',
-    model_name='cnn_lstm',
-    dataset_path=None,
-    label_dict={'NEU':0,'HAP':1,'ANG':2,'SAD':3,'DIS':4,'FEA':5,'EXC':1},
-    version=0,
-    dev_str='cuda:0',
-    batch_size=128,
-    log_samples=True,
-    debug=0
-    ):
-        self.debug = debug
-        self.log_samples = log_samples
-        self.model_name = model_name
-        print('model name: ', model_name)
-        print('debug mode: ', 'no debug' if debug == 0 else str(debug))
+    def __init__(self):
+        trainer_conf = GBL_CONF['trainer']
+        self.model_path = os.path.join(PATH['model'], trainer_conf['model_name'])
+        load_path = self.model_path if trainer_conf['load_from_checkpoint'] else None,
+
+        self.debug = trainer_conf['debug']
+        self.device=torch.device(GBL_CONF['global']['device'])
+        self.preload_device = torch.device(GBL_CONF['global']['preload_device'])
+        self.model_name = trainer_conf['model_name']
+        # load 3rd models
+        self.flame = FLAMEModel(self.device)
+        self.emoca = EMOCAModel(self.preload_device)
+        self.dan = DANModel(device=self.device)
+        
         # import model
-        self.model_path = '/home/chenyutong/facialanimation/Model/'
-        Model = importlib.import_module('Model.' + model_name + '.model').Model
-        Config = importlib.import_module('Model.' + model_name + '.config').Config
-        
-        if self.debug > 0:
-            torch.autograd.set_detect_anomaly(True)
-        
-        # save configs
+        Model = importlib.import_module('Model.' + self.model_name + '.model').Model
+        print('model name: ', self.model_name)
+        print('debug mode: ', self.debug == 0)
         print('Trainer: loading model')
-        self.device=torch.device(dev_str[0])
-        self.mc1 = MemCheck(True, self.device)
-        if len(dev_str) > 1:
-            self.other_devices = [torch.device(dev_i) for dev_i in dev_str[1:]]
-            self.mc2 = MemCheck(True, self.other_devices[0])
-        else:
-            self.mc2 = MemCheck(True, self.device)
-            self.other_devices = None
-        self.batch_size = batch_size
         self.model = None
         if load_path is not None:
-            self.load(load_path)
+            self.model, self.now_epoch = self.load_model(load_path, self.emoca, self.device)
         else:
-            config = Config()
-            config.args['wav2vec_path'] = wav2vec_path
-            config.args['debug'] = debug
-            self.model = Model(*config.parse_args(version=version))
-        
-        total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        print('model total_params:', total_params)
+            self.model, self.now_epoch = Model(), 0
+            self.model.set_emoca(self.emoca)
         self.model = self.model.to(self.device)
 
-
-        test_voca_path = r'/home/chenyutong/facialanimation/dataset_cache/VOCASET'
-        self.test_voca_dataset = BaselineVOCADataset(test_voca_path, device=self.device)
-        self.flame = FLAMEModel(self.device)
-
-        # init scheduler
-        if 'emo' in self.model_name:
-            self.lstm_epoch = 10 # actually it is lstm_epoch + 1 = 2, this is enough for lstm
-        self.lr_config = self.get_lr_config(self.model_name)
-        self.sche_type = self.lr_config['sche_type']
-        if self.sche_type == 'ReduceLROnPlateau':
+        total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print('total params:', total_params)
+        
+        self.lr_config = GBL_CONF['model'][self.model_name]['lr_config']
+        self.scheduler = self.lr_config['scheduler']
+        if self.scheduler == 'ReduceLROnPlateau':
             self.sche_list = []
             for opt in self.model.get_opt_list():
                 for g in opt.param_groups:
                     g['lr'] = self.lr_config['init']
                 self.sche_list.append(ReduceLROnPlateau(opt, \
-                    factor=self.lr_config['factor'], min_lr=self.lr_config['min'], patience=3, verbose=True, threshold=1e-5))
-        elif self.sche_type == 'PlateauDecreaseScheduler':
+                    factor=self.lr_config['factor'], 
+                    min_lr=self.lr_config['min_lr'], 
+                    patience=self.lr_config['patience'], 
+                    verbose=True, 
+                    threshold=1e-5))
+        elif self.scheduler == 'PlateauDecreaseScheduler':
             self.sche_list = [
                 PlateauDecreaseScheduler(self.model.get_opt_list(),
                     lr_coeff_list=self.lr_config['lr_coeff_list'],
@@ -115,30 +90,23 @@ class Trainer():
             ]
         # init dataset
         print('Trainer: init dataset')
-        self.label_dict = label_dict
-        self.dataset_path = dataset_path
-        # init other model
-        if 'emo' in self.model_name:
-            self.dan = DANModel(device=self.device)
-            self.emoca = EMOCAModel(device=self.other_devices[0] if self.other_devices is not None else self.device, decoder_only=False)
-            self.model.set_emoca(self.emoca) # register emoca
-        else:
-            self.emoca = None
-        dataset_dev = self.emoca.device if self.emoca is not None else self.device
-        self.dataset_train = EnsembleDataset(
-            self.dataset_path, self.label_dict, return_domain=True, dataset_type='train',device=dataset_dev, emoca=self.emoca, debug=debug)
-        self.dataset_test = EnsembleDataset(
-            self.dataset_path, self.label_dict, return_domain=False, dataset_type='test',device=dataset_dev, emoca=self.emoca, debug=debug)
 
-        self.emotion_class = 6
-        tr_sampler = RandomSampler(self.dataset_train)
-        self.train_loader = FlexibleLoader(self.dataset_train, batch_size=batch_size, sampler=tr_sampler, collate_fn=FACollate_fn)
-        # if batch size for test dataset > 1, best / worst samples can not be located exactly. 
-        te_sampler = SequentialSampler(self.dataset_test)
-        self.test_loader = FlexibleLoader(self.dataset_test, batch_size=16, sampler=te_sampler, collate_fn=FACollate_fn)
+        self.train_dataset = EnsembleDataset(
+            self.dataset_path, self.label_dict, return_domain=True, dataset_type='train',device=self.device, emoca=self.emoca, debug=self.debug)
+        self.valid_dataset = EnsembleDataset(
+            self.dataset_path, self.label_dict, return_domain=False, dataset_type='test',device=self.device, emoca=self.emoca, debug=self.debug)
+        self.test_voca_dataset = BaselineVOCADataset(PATH['dataset']['vocoset'], device=self.device)
+
+        trainer_sampler = RandomSampler(self.train_dataset)
+
+        self.train_loader = FlexibleLoader(self.train_dataset, 
+                                           batchsize=trainer_conf['flexible_loader']['train_batchsize'], sampler=trainer_sampler, collate_fn=FACollate_fn)
+        val_sampler = SequentialSampler(self.valid_dataset)
+        self.valid_loader = FlexibleLoader(self.valid_dataset, 
+                                           batch_size=trainer_conf['flexible_loader']['valid_batchsize'], sampler=val_sampler, collate_fn=FACollate_fn)
 
         print('output norm')
-        self.norm_dict = self.calculate_norm(self.dataset_train)
+        self.norm_dict = self.calculate_norm(self.train_dataset)
         self.model.set_norm(self.norm_dict['model_norm'], self.device)
         if 'emo' in self.model_name:
             self.dan.set_norm(self.norm_dict['dan_norm'])
@@ -215,7 +183,7 @@ class Trainer():
             output['dan_hist_list'] = dan_hist_list
         return output
 
-    def save(self):
+    def save_model(self):
         epoch = self.epoch
         # generate name by date and time
         today = date.today()
@@ -232,19 +200,19 @@ class Trainer():
         print('model saved as ', filename)
         return path.join(self.save_path, filename)
 
-    def load(self, model_path):
+    def load_model(self, model_path, emoca, device):
         print('load model from: ', model_path)
         save_dir = os.path.dirname(os.path.dirname(model_path))
         model_name = os.path.split(save_dir)[1]
         Model = importlib.import_module('Model.' + model_name + '.model').Model
-        #Config = importlib.import_module('Model.' + model_name + '.config').Config
         sd = torch.load(model_path)
-        self.epoch = sd['epoch']
+        self.now_epoch = sd['epoch']
         self.model = Model.from_configs(sd['model-config'])
         self.model.load_state_dict(sd['model'])
         del sd # release memory
-        self.model.to(device=self.device)
-        self.model.set_emoca(self.emoca)
+        self.model.to(device=device)
+        self.model.set_emoca(emoca)
+        return self.model, self.now_epoch
 
     def get_loss_item(self, outs, gt):
         out_dict = {}

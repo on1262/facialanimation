@@ -1,0 +1,17 @@
+---
+model_name: tf_emo_4
+
+load_from_checkpoint: false
+debug: 0
+
+flexible_loader:
+  train_batchsize: 128 # the real batch size for weight update and scheduler update
+  train_minibatch: 128 # smaller minibatch will avoid memory running out, but take longer to train
+  valid_batchsize: 16 # if batch size for valid dataset > 1, best / worst samples can not be located exactly. 
+  test_batchsize: 1
+
+grad_check:
+  enable: true
+  peroid_epoch: 5
+
+

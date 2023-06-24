@@ -1,0 +1,38 @@
+---
+paths:
+  config: ./configs
+  dataset:
+    cache: ./datasets/cache
+    biwi: ./datasets/BIWI
+    creamd: ./datasets/CREMA-D
+    lrs2: ./datasets/LRS2
+    ravdess: ./datasets/RAVDESS
+    vocaset: ./datasets/VOCASET
+  module_test: ./inference/module_test
+  inference:
+    input: ./inference/input
+    output: ./inference/output
+  log: ./logs
+  model: ./models
+  script: ./scripts
+  3rd:
+    emoca:
+      state_dict: ./3rd/EMOCABasic/data/emoca_basic.ckpt
+    dan:
+      state_dict: ./3rd/DAN/checkpoints/affecnet7_epoch6_acc0.6569.pth
+      norm: ./3rd/DAN/dan_norm.pt
+    wav2vec2:
+      pretrained: ./3rd/wav2vec2/pretrained_model
+      cache: ./3rd/wav2vec2/cache
+    faceformer:
+      template: ./3rd/FaceFormer/templates.pkl
+      
+seed: 1000
+device: "cuda:0"
+preload_device: "cuda:1"
+
+
+
+    
+
+  
