@@ -2,6 +2,7 @@
 paths:
   config: ./configs
   dataset:
+    norm_dict: ./datasets/cache/norm_dict.pt
     cache: ./datasets/cache
     biwi: ./datasets/BIWI
     creamd: ./datasets/CREMA-D

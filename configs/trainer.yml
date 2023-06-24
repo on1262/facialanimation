@@ -3,6 +3,7 @@ model_name: tf_emo_4
 
 load_from_checkpoint: false
 debug: 0
+fps: 30
 
 flexible_loader:
   train_batchsize: 128 # the real batch size for weight update and scheduler update

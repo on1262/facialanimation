@@ -10,7 +10,6 @@ from torchvision.io import read_image
 from datetime import datetime
 import torch
 import os
-from plyfile import PlyData
 import os.path as path
 import json
 

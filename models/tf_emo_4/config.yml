@@ -3,6 +3,7 @@ emo_channels: 7
 params_channels: 56
 dp: 0.15
 out_norm: None
+epochs: 100
 
 lr_config:
   scheduler: PlateauDecreaseScheduler
