@@ -1,4 +1,5 @@
 from trainer import Trainer
+from inference import Inference
 from utils.config_loader import GBL_CONF, PATH
 import argparse
 import os
@@ -20,12 +21,7 @@ def seed_torch(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.enabled = False
-
-def run_trainer():
-    trainer = Trainer()
-
-def run_inference():
-    pass
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -37,6 +33,11 @@ if __name__ == '__main__':
     # max_batch_size_dict = {'emo': 8, 'lstm_style' : 128, 'tf' : 70}
     
     if args.mode == 'train':
-        run_trainer()
+        trainer = Trainer()
+        trainer.run_epochs()
+    elif args.mode == 'inference':
+        inference = Inference()
+        inference.run()
+
     
 

@@ -13,6 +13,7 @@ paths:
   inference:
     input: ./inference/input
     output: ./inference/output
+    cache: ./inference/cache
   log: ./logs
   model: ./models
   script: ./scripts

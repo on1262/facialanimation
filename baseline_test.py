@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from utils.interface import LSTMEMO, FaceFormerModel, VOCAModel, BaselineConverter
 from dataset import BaselineBIWIDataset, BaselineVOCADataset
-from fitting.fit import Mesh, approx_transform, approx_transform_mouth, get_mouth_landmark
+from utils.fitting.fit import Mesh, approx_transform, approx_transform_mouth, get_mouth_landmark
 import torch.nn.functional as F
 import subprocess
 import argparse

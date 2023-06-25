@@ -753,38 +753,37 @@ class TESTDataset(Dataset):
         keys: name, emo_label, wav, imgs
     """
     def __init__(self, 
-        data_path, 
-        cache_path,
-        label_dict:dict, 
-        device=torch.device('cuda:8'), 
+        device=torch.device('cuda:0'), 
         emoca=None,
         dan=None
         ):
-
         super().__init__()
-        self.data_path = data_path # dir/XX.mp4 or XX.flv
-        self.cache_path = cache_path
-        self.emo_set = {'ANG','DIS','FEA','HAP','NEU','SAD'}
+        conf = GBL_CONF['inference']['infer_dataset']
+        self.in_dir = PATH['inference']['input']
+        self.out_dir = PATH['inference']['output']
+        self.cache_dir = PATH['inference']['cache']
+        self.emo_set = conf['emo_set']
         self.fan = FANDetector(device=device)
         self.emoca = emoca if emoca is not None else EMOCAModel(device=device)
         self.dan = dan if dan is not None else DANModel(device=device)
         assert(self.fan.device == self.emoca.device) # emoca encoder will throw a cuda OOM when two devices are different (debug mode only)
         print('TEST: loading from file')
         self.data_list = []
-        for file in sorted(os.listdir(data_path)): # stable index for every call
+        for file in sorted(os.listdir(self.in_dir)): # stable index for every call
             name = file.split('.')[0]
+            if file.split('.')[-1] not in ['.mp4', '.flv', '.wav']:
+                continue
             # try fetch emo label
             label = None
-            for str in self.emo_set:
-                if str in name:
-                    label = label_dict.get(str)
+            for emo_label in self.emo_set:
+                if emo_label in name:
+                    label = emo_label
             if label is not None: # avoid bad data
-                self.data_list.append({'name':name, 'emo_label':torch.LongTensor(data=[label]).squeeze(), 'path':os.path.join(data_path, file)})
+                self.data_list.append({'name':name, 'emo_label':torch.LongTensor(data=[label]).squeeze(), 'path':os.path.join(self.in_dir, file)})
             else:
-                self.data_list.append({'name':name, 'path':os.path.join(data_path, file)})
+                self.data_list.append({'name':name, 'path':os.path.join(self.in_dir, file)})
         
         print('TEST: load ', len(self.data_list), ' samples')
-    
     
     def __getitem__(self, index):
         """
@@ -800,7 +799,6 @@ class TESTDataset(Dataset):
         
         result_dict = {}
         ori_dict = self.data_list[index]
-        #print('key:', list(ori_dict.keys()))
         # avoid cuda OOM by forcing origin tensors stay in cpu memory. result_dict should also be a new dict
         for key in ori_dict.keys():
             if isinstance(ori_dict[key], torch.Tensor):
@@ -814,42 +812,44 @@ class TESTDataset(Dataset):
         
         #load wav
         if result_dict['path'].endswith('.flv') or result_dict['path'].endswith('.mp4'):
-            result_dict['wav_path'] = video2wav(result_dict['path'], self.cache_path) # used to load wav for final output
+            result_dict['wav_path'] = video2wav(result_dict['path'], self.cache_dir) # used to load wav for final output
             result_dict['wav'] = audio2tensor(result_dict['wav_path'])
+            #load and crop video
+            imgs_list = video2sequence(result_dict['path'], return_path=False, o_code='fan_in')
+            #imgs = torch.stack(imgs_list, dim=0)
+            with torch.no_grad():
+                # save emo tensor and params only
+                crop_imgs = self.fan.crop(imgs_list)
+                if crop_imgs is None:
+                    print('error unable to crop ', result_dict['name'])
+                    return result_dict
+                else:
+                    imgs = convert_img(crop_imgs, 'fan_out', 'store')
+                    result_dict['imgs'] = imgs
+                    result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
+                    #generate codedict(for output norm)
+                    result_dict['code_dict'] = \
+                        self.emoca.encode(convert_img(imgs, 'store','emoca').to(self.emoca.device), return_img=False) # dict(seq_len, code)
+                    for key in result_dict['code_dict'].keys():
+                        result_dict['code_dict'][key] = result_dict['code_dict'][key].detach().to('cpu')
+                    # reset position and camera code
+                    result_dict['code_dict']['posecode'][:, :3] = 0
+                    result_dict['code_dict']['posecode'][:, 4:] = 0
+                    result_dict['code_dict']['cam'][:,1] = 0
+                    result_dict['code_dict']['cam'][:,2] = 0
+                    result_dict['code_dict']['cam'][:,0] = 9 # stablize camera position
+                    result_dict['params'] = torch.cat([result_dict['code_dict']['expcode'], result_dict['code_dict']['posecode']], dim=-1)
+            # calculate frame rate
+            if 'params' in result_dict.keys():
+                fps = round(result_dict['params'].size(0) / (result_dict['wav'].size(0) / 16000))
+                print('fps estimated is ', fps)
+                result_dict = adjust_frame_rate(result_dict, fps)
         elif result_dict['path'].endswith('.wav'):
             result_dict['wav_path'] = result_dict['path']
             result_dict['wav'] = audio2tensor(result_dict['path'])
         else:
             print('error path:', result_dict['path'])
-            assert(False)
-            
-        if 'AUD_' in result_dict['name']:
-            return result_dict
-        #load and crop video
-        imgs_list = video2sequence(result_dict['path'], return_path=False, o_code='fan_in')
-        #imgs = torch.stack(imgs_list, dim=0)
-        with torch.no_grad():
-            # save emo tensor and params only
-            crop_imgs = self.fan.crop(imgs_list)
-            if crop_imgs is None:
-                print('error unable to crop ', result_dict['name'])
-            else:
-                imgs = convert_img(crop_imgs, 'fan_out', 'store')
-                result_dict['imgs'] = imgs
-                result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
-                #generate codedict(for output norm)
-                result_dict['code_dict'] = \
-                    self.emoca.encode(convert_img(imgs, 'store','emoca').to(self.emoca.device), return_img=False) # dict(seq_len, code)
-                for key in result_dict['code_dict'].keys():
-                    result_dict['code_dict'][key] = result_dict['code_dict'][key].detach().to('cpu')
-                result_dict['params'] = torch.cat([result_dict['code_dict']['expcode'], result_dict['code_dict']['posecode']], dim=-1)
-        # calculate frame rate
-        if 'params' in result_dict.keys():
-            fps = round(result_dict['params'].size(0) / (result_dict['wav'].size(0) / 16000))
-            print('fps estimated is ', fps)
-            result_dict = adjust_frame_rate(result_dict, fps)
-        else:
-            print('no fps, default is 30')
+            assert(0)
         return result_dict
     
     def __len__(self):

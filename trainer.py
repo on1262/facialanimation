@@ -19,7 +19,7 @@ from utils.converter import convert_img, save_img
 from utils.fitting.fit import approx_transform_mouth, get_mouth_landmark
 from utils.fitting.fit_utils import Mesh
 from utils.flexible_loader import FlexibleLoader
-from utils.generic import vertices2nparray
+from utils.generic import vertices2nparray, load_model_dict
 from utils.grad_check import GradCheck
 from utils.interface import DANModel, EMOCAModel, FLAMEModel
 from utils.loss_func import EmoTensorPredFunc, MouthConsistencyFunc, ParamLossFunc
@@ -195,15 +195,10 @@ class Trainer():
         return path.join(self.save_path, filename)
 
     def load_model(self, model_path, emoca, device):
-        print('load model from: ', model_path)
-        save_dir = os.path.dirname(os.path.dirname(model_path))
-        model_name = os.path.split(save_dir)[1]
-        Model = importlib.import_module('Model.' + model_name + '.model').Model
-        sd = torch.load(model_path)
+        sd, Model = load_model_dict(model_path, device)
         self.now_epoch = sd['epoch']
         self.model = Model.from_configs(sd['model-config'])
         self.model.load_state_dict(sd['model'])
-        del sd # release memory
         self.model.to(device=device)
         self.model.set_emoca(emoca)
         return self.model, self.now_epoch
@@ -384,5 +379,9 @@ class Trainer():
         
         self.now_epoch += 1
         return test_max_loss
+    
+    def run_epochs(self):
+        for _ in range(self.now_epoch, self.total_epoch, 1):
+            self.run_epoch()
         
         
