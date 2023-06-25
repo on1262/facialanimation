@@ -1,6 +1,7 @@
 ---
 cremad:
   fps: 30
+  division: [0.8, 0.1, 0.1]
   emo_label: {'ANG':'ANG','DIS':'DIS','FEA':'FEA','HAP':'HAP','NEU':'NEU','SAD':'SAD'}
   bad_sample: {
     '1076_MTI_NEU_XX', '1076_MTI_SAD_XX', '1064_TIE_SAD_XX', '1064_IEO_DIS_MD', 
@@ -23,9 +24,13 @@ biwi:
 
 vocaset:
   fps: 60
+  emo_only: true # only use emotional sentences in VOCASET
   train_subjects: {
     'FaceTalk_170728_03272_TA', 'FaceTalk_170904_00128_TA', 'FaceTalk_170725_00137_TA', 'FaceTalk_170915_00223_TA',
-    'FaceTalk_170811_03274_TA', 'FaceTalk_170913_03279_TA' , 'FaceTalk_170904_03276_TA', 'FaceTalk_170912_03278_TA','FaceTalk_170811_03275_TA', 'FaceTalk_170908_03277_TA'
+    'FaceTalk_170811_03274_TA', 'FaceTalk_170913_03279_TA' , 'FaceTalk_170904_03276_TA', 'FaceTalk_170912_03278_TA'
+  }
+  valid_subjects: {
+    'FaceTalk_170811_03275_TA', 'FaceTalk_170908_03277_TA'
   }
   test_subjects: {'FaceTalk_170809_00138_TA', 'FaceTalk_170731_00024_TA'}
   min_sec: 1.0
@@ -40,6 +45,7 @@ lrs2:
   max_sec: 4.0
   max_train_size: 3000
   max_val_size: 500
+  bad_sample: {}
   # debug configs
   debug: 0
   debug_load_size: 16

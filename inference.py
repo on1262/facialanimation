@@ -1,30 +1,32 @@
 #!/home/chenyutong/facialanimation
-import torch
 import argparse
+import glob
+import importlib
 import os
+import random
 import subprocess
 #from utils.loss_func import LossFunc
 import sys
-import importlib
-import glob
-import random
-import numpy as np
-from utils.flexible_loader import FlexibleLoader
-from tqdm import tqdm
-from utils.interface import EMOCAModel, DANModel
-from dataset import TESTDataset, FACollate_fn, CREMADDataset
-from utils.emo_curve_check import plot_curve
-from utils.converter import convert_img, save_img
-from fitting.fit_utils import Mesh
-from dataset import get_emo_label_from_name, get_emo_index
-from utils.converter import video2sequence, audio2tensor, video2wav
 
-def multi_imgs_2_video(img_path, audio_path, outputpath):
+import numpy as np
+import torch
+from tqdm import tqdm
+
+from dataset import (CREMADDataset, FACollate_fn, TESTDataset, get_emo_label_from_name)
+from utils.converter import (audio2tensor, convert_img, save_img, video2sequence, video2wav)
+from utils.config_loader import GBL_CONF, PATH
+from utils.emo_curve_check import plot_curve
+from utils.fitting.fit_utils import Mesh
+from utils.flexible_loader import FlexibleLoader
+from utils.interface import DANModel, EMOCAModel
+
+
+def multi_imgs_2_video(img_path, audio_path, out_path):
     if audio_path is not None and os.path.exists(audio_path):
         subprocess.run(['ffmpeg' , '-hide_banner', '-loglevel', 'error', '-y', \
-            '-f', 'image2', '-r', '30', '-i', img_path, '-i', audio_path, '-b:v','1M', outputpath])
+            '-f', 'image2', '-r', '30', '-i', img_path, '-i', audio_path, '-b:v','1M', out_path])
     else:
-        subprocess.run(['ffmpeg' , '-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2', '-r', '30', '-i', img_path, '-b:v','1M', outputpath])
+        subprocess.run(['ffmpeg' , '-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2', '-r', '30', '-i', img_path, '-b:v','1M', out_path])
 
 
 # get params from .pt dataset file
@@ -92,7 +94,7 @@ class Inference():
                 for key in data['code_dict']:
                     data['code_dict'][key] = data['code_dict'][key].to(self.device)
 
-                origin_label = data_label[get_emo_label_from_name('cremad', label_dict, data['name'])]
+                origin_label = data_label[get_emo_label_from_name('cremad', data['name'])]
                 data['code_dict']['posecode'][:, 4:] = 0
                 data['code_dict']['cam'][:,1] = 0
                 data['code_dict']['cam'][:,2] = 0
