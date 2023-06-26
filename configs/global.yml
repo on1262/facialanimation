@@ -14,20 +14,21 @@ paths:
     input: ./inference/input
     output: ./inference/output
     cache: ./inference/cache
+    baseline_test: ./inference/baseline_test
   log: ./logs
   model: ./models
   script: ./scripts
   3rd:
     emoca:
-      state_dict: ./3rd/EMOCABasic/data/emoca_basic.ckpt
+      state_dict: ./third_party/EMOCABasic/data/emoca_basic.ckpt
     dan:
-      state_dict: ./3rd/DAN/checkpoints/affecnet7_epoch6_acc0.6569.pth
-      norm: ./3rd/DAN/dan_norm.pt
+      state_dict: ./third_party/DAN/checkpoints/affecnet7_epoch6_acc0.6569.pth
+      norm: ./third_party/DAN/dan_norm.pt
     wav2vec2:
-      pretrained: ./3rd/wav2vec2/pretrained_model
-      cache: ./3rd/wav2vec2/cache
+      pretrained: ./third_party/wav2vec2/pretrained_model
+      cache: ./third_party/wav2vec2/cache
     faceformer:
-      template: ./3rd/FaceFormer/templates.pkl
+      template: ./third_party/FaceFormer/templates.pkl
       
 seed: 1000
 device: "cuda:0"

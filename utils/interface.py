@@ -1,17 +1,23 @@
-import sys
-sys.path.append('/home/chenyutong/facialanimation')
-import os
-from DAN.networks.dan import DAN
-from EMOCABasic import DecaModule, save_images, FLAME
-from utils.converter import save_img
-from fitting.fit_utils import Mesh
-from torchvision import transforms
-from PIL import Image
-from threading import Thread
-import numpy as np
 import glob
-import torch
 import json
+import os
+import pickle
+import sys
+from threading import Thread
+
+import numpy as np
+import plyfile
+import torch
+from fitting.fit_utils import Mesh
+from PIL import Image
+from torchvision import transforms
+from transformers import Wav2Vec2Processor
+
+from third_party.DAN.networks.dan import DAN
+from third_party.EMOCABasic import FLAME, DecaModule, save_images
+from third_party.FaceFormer import faceformer
+from utils.config_loader import GBL_CONF, PATH
+from utils.converter import save_img
 
 
 class FLAMEModel():
@@ -38,12 +44,12 @@ class EMOCAModel():
     def __init__(self, device, decoder_only=False):
         self.device = device
         self.emoca = DecaModule(decoder_only)
-        self.emoca.load_state_dict(torch.load('/home/chenyutong/facialanimation/EMOCABasic/data/emoca_basic.ckpt'), strict=(not decoder_only))
+        self.emoca.load_state_dict(torch.load(PATH['3rd']['emoca']['state_dict']), strict=(not decoder_only))
         for p in self.emoca.parameters():
             p.requires_grad = False
         self.emoca.to(device=device)
         self.emoca.eval()
-        self.max_batch_size=40 # 40
+        self.max_batch_size=GBL_CONF['inference']['emoca']['batchsize']
 
     """
     input: imgs(tensor), batch,3,224,224. format = convert_img( o_code='emoca')
@@ -163,47 +169,27 @@ class EMOCAModel():
                 assert(outdict[key].size(0) == codedict['shapecode'].size(0))
         return outdict
 
-    """
-    input: img: dict
-        keys= image: tensor, image_name: list(str)
-    """
-    def inference(self, img, save_img=False):
-        # img cropped
-        if len(img['image'].shape) == 3:
-            img['image'] = img['image'].view(1,3,224,224)
-        
-        codedict = self.encode(img)
-        vals, visdict = self.decode(codedict)
-        # name = f"{i:02d}"
-        if save_img:
-            name =  img['image_name'][0]
-            sample_output_folder = Path(output_folder) / name
-            sample_output_folder.mkdir(parents=True, exist_ok=True)
-            save_images(output_folder, name, visdict, with_detection=True, i=j)
-        
-        return codedict, vals, visdict
-
 
 class DANModel():
     def __init__(self, device):
         self.device = device
-        self.labels = ['NEU', 'HAP', 'SAD', 'SUR', 'FEA', 'DIS', 'ANG']
-        if os.path.exists('/home/chenyutong/facialanimation/DAN/dan_norm.pt'):
+        self.labels = GBL_CONF['inference']['dan']['emo_label']
+        if os.path.exists(PATH['3rd']['dan']['norm']):
             print('load from new_norm.pt')
-            self.out_norm = torch.load('/home/chenyutong/facialanimation/DAN/dan_norm.pt')['norm'].to(self.device)
+            self.out_norm = torch.load(PATH['3rd']['dan']['norm'])['norm'].to(self.device)
             print('DAN label:', self.labels)
             print('DAN [mean, std]:', self.out_norm)
         else:
             self.out_norm = None
         self.data_transforms = transforms.Compose([
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
+                                    transforms.Normalize(mean=GBL_CONF['inference']['dan']['transform_mean'],
+                                    std=GBL_CONF['inference']['dan']['transform_std'])
                                 ])
-        self.max_batch_size = 40 # 40
+        self.max_batch_size = GBL_CONF['inference']['dan']['batchsize']
         self.tensor2img = transforms.ToPILImage()
         self.img2tensor = transforms.ToTensor()
         self.model = DAN(num_head=4, num_class=7, pretrained=False)
-        self.model.load_state_dict(torch.load('/home/chenyutong/facialanimation/DAN/checkpoints/affecnet7_epoch6_acc0.6569.pth', map_location=self.device)['model_state_dict'],strict=True)
+        self.model.load_state_dict(torch.load(PATH['3rd']['dan']['state_dict'], map_location=self.device)['model_state_dict'],strict=True)
         for p in self.model.parameters():
             p.requires_grad = False
         self.model.to(device=self.device)
@@ -253,37 +239,30 @@ class DANModel():
         # label is not tensor but str
         return out
 
-
 class FaceFormerConfig:
     def __init__(self, device):
-        self.model_name = 'vocaset'
-        self.dataset = 'vocaset'
-        self.fps = 30
-        self.feature_dim = 64
-        self.period =  30
-        self.vertice_dim = 5023*3
+        conf = GBL_CONF['interface']['faceformer']
+        self.model_name = conf['model_name']
+        self.dataset = conf['dataset']
+        self.fps = conf['fps']
+        self.feature_dim = conf['feature_dim']
+        self.period =  conf['period']
+        self.vertice_dim = conf['vertice_dim']
         self.device = device
-        self.template_path = 'templates.pkl'
-        self.train_subjects = "FaceTalk_170728_03272_TA FaceTalk_170904_00128_TA FaceTalk_170725_00137_TA FaceTalk_170915_00223_TA FaceTalk_170811_03274_TA FaceTalk_170913_03279_TA FaceTalk_170904_03276_TA FaceTalk_170912_03278_TA"
-        self.val_subjects = "FaceTalk_170811_03275_TA FaceTalk_170908_03277_TA"
-        self.test_subjects = "FaceTalk_170809_00138_TA FaceTalk_170731_00024_TA"
+        self.template_path = PATH['3rd']['faceformer']['template']
+        self.train_subjects = conf['train_subjects']
+        self.val_subjects = conf['val_subjects']
+        self.test_subjects = conf['test_subjects']
         self.subject = None # vertex template
-        self.condition = 'FaceTalk_170728_03272_TA' # speaking style
-
+        self.condition = conf['condition'] # speaking style
 
 class FaceFormerModel:
     def __init__(self, device):
-        # import
-        import plyfile
-        import pickle
-        from FaceFormer.faceformer import Faceformer
-        from transformers import Wav2Vec2Processor
         # config
         config = FaceFormerConfig(device)
-        self.config = config
         self.device = device
         # build model
-        self.model = Faceformer(config)
+        self.model = faceformer.Faceformer(config)
         self.model.load_state_dict(torch.load(os.path.join('FaceFormer', config.dataset, '{}.pth'.format(config.model_name)), map_location=self.device))
         self.model = self.model.to(torch.device(device))
         self.model.eval()
@@ -292,24 +271,15 @@ class FaceFormerModel:
         
         
         self.template = {}
-        if config.dataset.lower() == 'biwi':
-            template_file = os.path.join('FaceFormer', config.dataset, config.template_path)
-            with open(template_file, 'rb') as fin:
-                templates = pickle.load(fin,encoding='latin1')
-            for key in templates.keys():
-                temp = templates[key].reshape((-1))
-                temp = np.reshape(temp,(-1,temp.shape[0]))
-                self.template[key] = torch.FloatTensor(temp).to(device=device)
-        else:
-            # load ply and conver to dict
-            template_dir = r'/home/chenyutong/facialanimation/FaceFormer/vocaset/template_pkl'
-            plys = sorted(os.listdir(template_dir))
-            for ply in plys:
-                plydata = plyfile.PlyData.read(os.path.join(template_dir, ply))
-                tmp_tensor = torch.as_tensor(
-                    np.asarray([plydata['vertex']['x'], plydata['vertex']['y'], plydata['vertex']['z']]).T.reshape((1, self.config.vertice_dim)), 
-                    device=self.device) # N, 3
-                self.template[ply.split('.')[0]] = tmp_tensor
+        # load ply and conver to dict
+        template_dir = config.template_path
+        plys = sorted(os.listdir(template_dir))
+        for ply in plys:
+            plydata = plyfile.PlyData.read(os.path.join(template_dir, ply))
+            tmp_tensor = torch.as_tensor(
+                np.asarray([plydata['vertex']['x'], plydata['vertex']['y'], plydata['vertex']['z']]).T.reshape((1, self.config.vertice_dim)), 
+                device=self.device) # N, 3
+            self.template[ply.split('.')[0]] = tmp_tensor
         self.train_subjects_list = [i for i in config.train_subjects.split(" ")]
         self.one_hot_labels = np.eye(len(self.train_subjects_list))
         iter = self.train_subjects_list.index(config.condition)
@@ -336,7 +306,7 @@ class FaceFormerModel:
 class VOCAModel:
     def __init__(self, device):
         self.device = device
-        self.out_path = r'/home/chenyutong/facialanimation/VOCA/baseline_test'
+        self.out_path = os.path.join(PATH['dataset']['vocaset']['fit_output'])
 
     def forward(self, data):
         # load obj
@@ -353,9 +323,8 @@ class VOCAModel:
         return torch.as_tensor(arrs).to(self.device)
 
 
-class LSTMEMO:
-    def __init__(self, device, model_name='lstm_emo'):
-        from inference import Inference
+class Model:
+    def __init__(self, model_name, device):
         import importlib
         Model = importlib.import_module('Model.' + model_name + '.model').Model
         print('init inference')
@@ -380,11 +349,10 @@ class LSTMEMO:
         out = self.flame.forward(codedict)
         return out
 
-'''
-test mesh convertion precision.
-use converted ground truth as model output
-'''
 class BaselineConverter:
+    '''
+    test mesh convertion precision. use converted ground truth as model output
+    '''
     def __init__(self, device):
         self.device = device
         self.data_path = '/home/chenyutong/facialanimation/dataset_cache/BIWI/fit_output/'

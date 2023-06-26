@@ -12,14 +12,13 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from dataset import (CREMADDataset, FACollate_fn, TESTDataset, get_emo_label_from_name)
-from utils.converter import (audio2tensor, convert_img, save_img, video2sequence, video2wav)
+from dataset import TESTDataset, BaselineVOCADataset
+from utils.converter import convert_img, save_img
 from utils.config_loader import GBL_CONF, PATH
 from utils.emo_curve_check import plot_curve
-from utils.fitting.fit_utils import Mesh
-from utils.flexible_loader import FlexibleLoader
-from utils.interface import DANModel, EMOCAModel, FaceFormerModel
+from utils.interface import EMOCAModel, FaceFormerModel
 from utils.generic import multi_imgs_2_video, load_model_dict
+from utils.fitting.fit import Mesh, approx_transform, approx_transform_mouth, get_mouth_landmark
 
 def get_gt_from_dataset(dataset_path, load_name):
     # get params from .pt dataset file
@@ -47,8 +46,6 @@ class Inference():
         torch.cuda.set_device(self.device) # removing this line cause CUDA illegal memory assess, see https://github.com/pytorch/pytorch/issues/21819
         self.emoca = EMOCAModel(self.device)
         self.ffm = FaceFormerModel(self.device)
-        model_path = os.path.join(PATH['model'], self.infer_conf['mode_conf']['model_name'])
-        self.model = self.load_model(model_path, self.emoca, self.device)
 
 
     def load_model(self, model_path, emoca, device):
@@ -66,21 +63,28 @@ class Inference():
         out_dict = self.model.test_forward(data) # forward
         return out_dict
 
-    def run(self):
+    def inference(self):
         # label_dict = {'NEU':0,'HAP':1,'ANG':2,'SAD':3,'DIS':4,'FEA':5, 'EXC':1}
         '''
+        generate output video
+
         config format:
-        video: use video to reconstruct 3DMM, add speech driven result
-        emo-cls: input audio, output varying emotion class
-        emo-ist: varying intensity
-        audio: input audio, output animation
+            video: use video to reconstruct 3DMM, add speech driven result
+            emo-cls: input audio, output varying emotion class
+            emo-ist: varying intensity
+            audio: input audio, output animation
         '''
+        # load model
+        model_path = os.path.join(PATH['model'], self.infer_conf['inference_mode']['model_name'])
+        self.model = self.load_model(model_path, self.emoca, self.device)
+
         sample_configs = self.infer_conf['infer_dataset']['sample_configs']
+        
         # vid_path: dir, aud_path: dir
         print('loading dataset...')
         # debug = 1, disable auto parse
         dataset = TESTDataset(device=self.device, emoca=self.emoca)
-        for data in dataset:
+        for data in tqdm(dataset, 'inference'):
             conf = sample_configs[data['name']]
             print('processing ', data['name'], 'conf=', conf)
 
@@ -202,3 +206,76 @@ class Inference():
                     save_img(torch.cat(frame_img, -1), os.path.join(sample_cache_dir, '%04d.jpg' % i))
                 multi_imgs_2_video(os.path.join(sample_cache_dir, '%04d.jpg'), data['wav_path'], os.path.join(sample_out_dir, data['name'] + '.mp4'))
         print('Inference Done')
+
+    def baseline_test(self, model_name, model, model_output_type, gt_output_type, device,save_obj=True):
+        '''test vertex position error'''
+        test_dataset = BaselineVOCADataset(dataset_type='test', device=device)
+        btest_conf = GBL_CONF['inference']['baseline_test']
+
+        # load model
+        model_name = self.infer_conf['baseline_test']['model_name']
+        model_path = os.path.join(PATH['model'], )
+        max_loss, avg_loss = 0, 0
+        lmk_idx_out = get_mouth_landmark('flame')
+        lmk_idx_gt = get_mouth_landmark('flame')
+        print('load', len(test_dataset),'in test dataset')
+        output_path = 
+        if save_obj:
+            subprocess.run(['rm','-rf', output_path, 'baseline_eval'])
+            subprocess.run(['rm','-rf', output_path, 'baseline_gt'])
+        with torch.no_grad():
+            for idx,data in enumerate(dataset):
+                d = {'wav':data['wav'].to(device), 'code_dict':None , 'name':data['name'], 'seqs_len':data['seqs_len'],'verts':data['verts'].to(device),
+                    'flame_template':data['flame_template'], 'shapecode':data['shapecode'].to(device)}
+                d['emo_tensor_conf'] = ['no_use']
+                gt = d['verts']
+                output =  model.forward(d) # 1, vertexm 3
+                try:
+                    assert(output.size(0) == gt.size(0))
+                except Exception as e:
+                    print('name=', data['name'], 'output size=', output.size(), ' gt size=', gt.size())
+                    min_len = min(output.size(0), gt.size(0))
+                    gt = gt[:min_len,:,:]
+                    output = output[:min_len,:,:]
+                seq_len = gt.size(0)
+                gt, output = gt.detach().cpu().numpy(), output.detach().cpu().numpy()
+                seq_max_loss = 0
+                seq_avg_loss = 0
+                if save_obj:
+                    bt_out_p = os.path.join(output_path, 'baseline_eval', d['name'])
+                    bt_gt_p = os.path.join(output_path, 'baseline_gt', d['name'])
+                    os.makedirs(bt_out_p, exist_ok=True)
+                    os.makedirs(bt_gt_p, exist_ok=True)
+                            
+                if 'emo' in model_name:
+                    output = np.asarray(output)
+                    fixer = DetailFixer(d['flame_template']['ply'], target_area='mouth',fix_mesh=None)
+                    output = output + (fixer.template_mesh.v - output[0,:,:])
+                
+                
+                for idx2 in range(seq_len):
+                    m_out = Mesh(output[idx2,:,:], model_output_type)
+                    m_gt = Mesh(gt[idx2,:,:], gt_output_type)
+                    #m_out,_ = approx_transform(m_out, m_gt, frac_scale=True)
+                    m_out = approx_transform_mouth(m_out, m_gt)
+                    
+                    # the scale of output is not corresponds to real scale
+                    #m_out = mesh_seq[idx2]
+                    delta = m_gt.v[lmk_idx_gt,:]-m_out.v[lmk_idx_out,:]
+                    delta = np.sqrt(np.power(delta[:,0],2) + np.power(delta[:,1],2) + np.power(delta[:,2],2))
+                    seq_avg_loss += np.mean(delta)
+                    seq_max_loss += np.max(delta)
+                    if save_obj:
+                        Mesh.write_obj(m_out.template, m_out.v, os.path.join(bt_out_p, str(idx2) + '.obj'))
+                        Mesh.write_obj(m_gt.template, m_gt.v, os.path.join(bt_gt_p, str(idx2) + '.obj'))
+                max_loss += (seq_max_loss / seq_len)
+                avg_loss += (seq_avg_loss / seq_len)
+                if idx % 10 == 0:
+                    print('idx=',idx, 'mean loss=', avg_loss/(idx+1), 'max loss=', max_loss/(idx+1), 'name=', data['name'])
+
+        print('='*10, 'test result', '='*10)
+        print('model type:', type(model))
+        print('average max vertex loss:', max_loss/len(dataset))
+        print('average avg vertex loss:', avg_loss/len(dataset))
+        print('Done')
+        return max_loss / len(dataset)

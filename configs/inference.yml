@@ -1,14 +1,16 @@
 ---
-# test mode: [model, trailer, matrix, baseline_test]
-mode: model
+# test mode: [inference, baseline_test]
+mode: inference
 
-# inference configs
-smoothing: True
-default_intensity: 0.5
+inference_mode:
+  model_name: tf_emo_4
+  smoothing: True
+  default_intensity: 0.5
 
-mode_conf:
+baseline_test:
   model_name: tf_emo_4
   baseline: ['voca', 'faceformer', 'convert']
+  save_obj: False
 
 faceformer:
   model_name: vocaset
@@ -24,8 +26,12 @@ faceformer:
 
 dan:
   emo_label: ['NEU', 'HAP', 'SAD', 'SUR', 'FEA', 'DIS', 'ANG']
+  transform_mean: [0.485, 0.456, 0.406]
+  transform_std: [0.229, 0.224, 0.225]
+  batchsize: 40
 
 emoca:
+  batchsize: 40
   default_light_code: [[3.1922e+00,  3.1756e+00,  3.1457e+00],
         [-1.8626e-01, -1.8953e-01, -1.9047e-01],
         [ 3.4422e-01,  3.5231e-01,  3.5370e-01],

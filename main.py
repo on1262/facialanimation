@@ -37,7 +37,7 @@ if __name__ == '__main__':
         trainer.run_epochs()
     elif args.mode == 'inference':
         inference = Inference()
-        inference.run()
+        inference.inference()
 
     
 
