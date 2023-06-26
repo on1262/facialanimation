@@ -43,15 +43,14 @@ class Trainer():
         self.emoca = EMOCAModel(self.preload_device)
         self.dan = DANModel(device=self.device)
         
-        # import model
-        Model = importlib.import_module('Model.' + self.model_name + '.model').Model
         print('model name: ', self.model_name)
         print('debug mode: ', self.debug == 0)
         print('Trainer: loading model')
         self.model = None
-        if load_path is not None:
+        if load_path is not None: # load existed model
             self.model, self.now_epoch = self.load_model(load_path, self.emoca, self.device)
-        else:
+        else: # create new model instance
+            Model = importlib.import_module('models.' + self.model_name + '.model').Model
             self.model, self.now_epoch = Model(), 0
             self.model.set_emoca(self.emoca)
         self.model = self.model.to(self.device)

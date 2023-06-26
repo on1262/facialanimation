@@ -1,12 +1,6 @@
 #!/home/chenyutong/facialanimation
-import argparse
-import glob
-import importlib
 import os
-import random
 import subprocess
-#from utils.loss_func import LossFunc
-import sys
 
 import numpy as np
 import torch
@@ -18,7 +12,9 @@ from utils.config_loader import GBL_CONF, PATH
 from utils.emo_curve_check import plot_curve
 from utils.interface import EMOCAModel, FaceFormerModel
 from utils.generic import multi_imgs_2_video, load_model_dict
-from utils.fitting.fit import Mesh, approx_transform, approx_transform_mouth, get_mouth_landmark
+from utils.fitting.fit import Mesh, approx_transform_mouth, get_mouth_landmark
+from utils.interface import FaceFormerModel, VOCAModel, BaselineConverter
+from utils.detail_fixer import DetailFixer
 
 def get_gt_from_dataset(dataset_path, load_name):
     # get params from .pt dataset file
@@ -207,29 +203,46 @@ class Inference():
                 multi_imgs_2_video(os.path.join(sample_cache_dir, '%04d.jpg'), data['wav_path'], os.path.join(sample_out_dir, data['name'] + '.mp4'))
         print('Inference Done')
 
-    def baseline_test(self, model_name, model, model_output_type, gt_output_type, device,save_obj=True):
+    def baseline_test(self):
         '''test vertex position error'''
-        test_dataset = BaselineVOCADataset(dataset_type='test', device=device)
+        test_dataset = BaselineVOCADataset(dataset_type='test', device=self.device)
         btest_conf = GBL_CONF['inference']['baseline_test']
 
         # load model
         model_name = self.infer_conf['baseline_test']['model_name']
-        model_path = os.path.join(PATH['model'], )
+        if model_name == 'convert':
+            self.model = BaselineConverter(self.device)
+        elif model_name == 'faceformer_flame':
+            self.model = FaceFormerModel(self.device)
+        elif model_name == 'voca':
+            self.model = VOCAModel(self.device)
+        else:
+            model_path = os.path.join(PATH['model'], model_name)
+            self.model = self.load_model(model_path, self.emoca, self.device)
+
         max_loss, avg_loss = 0, 0
-        lmk_idx_out = get_mouth_landmark('flame')
-        lmk_idx_gt = get_mouth_landmark('flame')
+        lmk_idx_out = lmk_idx_gt = get_mouth_landmark('flame')
         print('load', len(test_dataset),'in test dataset')
-        output_path = 
-        if save_obj:
+        output_path = PATH['inference']['baseline_test']
+
+        if btest_conf['save_obj']:
             subprocess.run(['rm','-rf', output_path, 'baseline_eval'])
             subprocess.run(['rm','-rf', output_path, 'baseline_gt'])
+
         with torch.no_grad():
-            for idx,data in enumerate(dataset):
-                d = {'wav':data['wav'].to(device), 'code_dict':None , 'name':data['name'], 'seqs_len':data['seqs_len'],'verts':data['verts'].to(device),
-                    'flame_template':data['flame_template'], 'shapecode':data['shapecode'].to(device)}
-                d['emo_tensor_conf'] = ['no_use']
+            for idx,data in enumerate(test_dataset):
+                d = {
+                    'wav':data['wav'].to(self.device), 
+                    'code_dict':None , 
+                    'name':data['name'], 
+                    'seqs_len':data['seqs_len'],
+                    'verts':data['verts'].to(self.device),
+                    'flame_template':data['flame_template'], 
+                    'shapecode':data['shapecode'].to(self.device),
+                    'emo_tensor_conf': 'no_use'
+                }
                 gt = d['verts']
-                output =  model.forward(d) # 1, vertexm 3
+                output =  self.model.forward(d) # 1, vertexm 3
                 try:
                     assert(output.size(0) == gt.size(0))
                 except Exception as e:
@@ -241,7 +254,7 @@ class Inference():
                 gt, output = gt.detach().cpu().numpy(), output.detach().cpu().numpy()
                 seq_max_loss = 0
                 seq_avg_loss = 0
-                if save_obj:
+                if btest_conf['save_obj']:
                     bt_out_p = os.path.join(output_path, 'baseline_eval', d['name'])
                     bt_gt_p = os.path.join(output_path, 'baseline_gt', d['name'])
                     os.makedirs(bt_out_p, exist_ok=True)
@@ -252,10 +265,9 @@ class Inference():
                     fixer = DetailFixer(d['flame_template']['ply'], target_area='mouth',fix_mesh=None)
                     output = output + (fixer.template_mesh.v - output[0,:,:])
                 
-                
                 for idx2 in range(seq_len):
-                    m_out = Mesh(output[idx2,:,:], model_output_type)
-                    m_gt = Mesh(gt[idx2,:,:], gt_output_type)
+                    m_out = Mesh(output[idx2,:,:], 'flame')
+                    m_gt = Mesh(gt[idx2,:,:], 'flame')
                     #m_out,_ = approx_transform(m_out, m_gt, frac_scale=True)
                     m_out = approx_transform_mouth(m_out, m_gt)
                     
@@ -265,7 +277,7 @@ class Inference():
                     delta = np.sqrt(np.power(delta[:,0],2) + np.power(delta[:,1],2) + np.power(delta[:,2],2))
                     seq_avg_loss += np.mean(delta)
                     seq_max_loss += np.max(delta)
-                    if save_obj:
+                    if btest_conf['save_obj']:
                         Mesh.write_obj(m_out.template, m_out.v, os.path.join(bt_out_p, str(idx2) + '.obj'))
                         Mesh.write_obj(m_gt.template, m_gt.v, os.path.join(bt_gt_p, str(idx2) + '.obj'))
                 max_loss += (seq_max_loss / seq_len)
@@ -274,8 +286,8 @@ class Inference():
                     print('idx=',idx, 'mean loss=', avg_loss/(idx+1), 'max loss=', max_loss/(idx+1), 'name=', data['name'])
 
         print('='*10, 'test result', '='*10)
-        print('model type:', type(model))
-        print('average max vertex loss:', max_loss/len(dataset))
-        print('average avg vertex loss:', avg_loss/len(dataset))
+        print('model type:', type(self.model))
+        print('average max vertex loss:', max_loss/len(test_dataset))
+        print('average avg vertex loss:', avg_loss/len(test_dataset))
         print('Done')
-        return max_loss / len(dataset)
+        return max_loss / len(test_dataset)

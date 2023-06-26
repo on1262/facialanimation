@@ -4,6 +4,7 @@ import os
 import pickle
 import sys
 from threading import Thread
+import importlib
 
 import numpy as np
 import plyfile
@@ -14,10 +15,9 @@ from torchvision import transforms
 from transformers import Wav2Vec2Processor
 
 from third_party.DAN.networks.dan import DAN
-from third_party.EMOCABasic import FLAME, DecaModule, save_images
+from third_party.EMOCABasic import FLAME, DecaModule
 from third_party.FaceFormer import faceformer
 from utils.config_loader import GBL_CONF, PATH
-from utils.converter import save_img
 
 
 class FLAMEModel():
@@ -322,40 +322,11 @@ class VOCAModel:
         arrs = np.stack(arrs, axis=0)
         return torch.as_tensor(arrs).to(self.device)
 
-
-class Model:
-    def __init__(self, model_name, device):
-        import importlib
-        Model = importlib.import_module('Model.' + model_name + '.model').Model
-        print('init inference')
-        self.model_path = os.path.join('/home/chenyutong/facialanimation/Model', model_name,'saved_model')
-        print('load model from', self.model_path)
-        list_of_files = glob.glob(os.path.join(self.model_path, '*.pth')) # * means all if need specific format then *.csv
-        latest_file = max(list_of_files, key=os.path.getctime)
-        print('load model from: ', latest_file)
-        self.infer = Inference('3d', device, latest_file, Model)
-        self.flame = FLAMEModel(device)
-        self.device = device
-
-        # load ply and conver to dict
-        template_dir = r'/home/chenyutong/facialanimation/FaceFormer/vocaset/template_pkl'
- 
-    def forward(self, data):
-        params = self.infer.forward(data)['params'].squeeze(0)
-        seq_len = params.size(0)
-        #print('params:', params.size())
-        codedict = {'shapecode':torch.zeros((seq_len, 100), device=self.device), 'expcode':params[:,:50], 'posecode':params[:,50:]}
-        codedict['shapecode'] = data['shapecode'].to(self.device)
-        out = self.flame.forward(codedict)
-        return out
-
 class BaselineConverter:
-    '''
-    test mesh convertion precision. use converted ground truth as model output
-    '''
+    '''test mesh convertion precision. use converted ground truth as model output'''
     def __init__(self, device):
         self.device = device
-        self.data_path = '/home/chenyutong/facialanimation/dataset_cache/BIWI/fit_output/'
+        self.data_path = os.path.join(PATH['dataset']['biwi'], 'fit_output')
         self.flame = FLAMEModel(device)
 
     def forward(self, data):
