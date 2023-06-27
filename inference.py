@@ -12,7 +12,7 @@ from utils.config_loader import GBL_CONF, PATH
 from utils.emo_curve_check import plot_curve
 from utils.interface import EMOCAModel, FaceFormerModel
 from utils.generic import multi_imgs_2_video, load_model_dict
-from utils.fitting.fit import Mesh, approx_transform_mouth, get_mouth_landmark
+from fitting import Mesh, approx_transform_mouth, get_mouth_landmark
 from utils.interface import FaceFormerModel, VOCAModel, BaselineConverter
 from utils.detail_fixer import DetailFixer
 

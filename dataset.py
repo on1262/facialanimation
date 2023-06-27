@@ -1,4 +1,4 @@
-import yaml
+import yaml, json
 import os
 import os.path as path
 from datetime import datetime
@@ -8,12 +8,11 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torchvision.io import read_image
 
-from utils.check_distribution import check_params_distribution
 from utils.config_loader import GBL_CONF, PATH
 from utils.converter import (audio2tensor, convert_img, video2sequence, video2wav)
 
 from utils.detector import FANDetector
-from utils.fitting.fit_utils import Mesh, read_vl
+from fitting.fit_utils import Mesh, read_vl
 from utils.interface import DANModel, EMOCAModel
 
 
@@ -195,8 +194,8 @@ class CREMADDataset(Dataset):
             assert(self.fan.device == self.emoca.device == self.dan.device) 
             print('CREMAD: loading from file')
             self.data_list = []
-            video_set = {name.split('.')[0] for name in os.listdir(path.join(data_path, 'VideoFlash'))} # frames/ included
-            for file in sorted(os.listdir(path.join(data_path, 'AudioWAV'))): # stable index for every call
+            video_set = {name.split('.')[0] for name in os.listdir(path.join(self.data_path, 'VideoFlash'))} # frames/ included
+            for file in sorted(os.listdir(path.join(self.data_path, 'AudioWAV'))): # stable index for every call
                 name = file.split('.')[0]
                 label = self.label_dict.get(self.dict.get(name.split('_')[2]))
                 if (label is not None) and (name in video_set) and (name not in self.bad_data): # avoid bad data
@@ -218,11 +217,11 @@ class CREMADDataset(Dataset):
                     assert(0)
                 # auto parse dataset
                 print('auto parse dataset')
-                self.data_list = parse_dataset(self, path.join(data_path, 'cremad_' + dataset_type + '.pt'))
+                self.data_list = parse_dataset(self, path.join(self.data_path, 'cremad_' + dataset_type + '.pt'))
                 self.preloaded_flag = True
         else:
             print('CREMAD: loading from cremad_' + dataset_type + '.pt')
-            self.data_list = torch.load(path.join(data_path, 'cremad_' + dataset_type + '.pt'), map_location='cpu')
+            self.data_list = torch.load(path.join(self.data_path, 'cremad_' + dataset_type + '.pt'), map_location='cpu')
         
         
         print('CREAMD: load ', len(self.data_list), ' samples')
@@ -281,7 +280,7 @@ class CREMADDataset(Dataset):
 
 class BIWIDataset(Dataset):
     """
-    deprecated class
+    @deprecated
 
     data(dict):
         keys: name, emo_label, wav, imgs
@@ -303,7 +302,7 @@ class BIWIDataset(Dataset):
         self.train_subjects = biwi_conf['train_subjects']
         self.test_subjects = biwi_conf['test_subjects']
     
-        self.preloaded = path.exists(path.join(data_path, 'biwi_' + dataset_type + '.pt')) and debug == 0
+        self.preloaded = path.exists(path.join(self.data_path, 'biwi_' + dataset_type + '.pt')) and debug == 0
     
         if not self.preloaded:
             self.fan = FANDetector(device=device)
@@ -311,29 +310,29 @@ class BIWIDataset(Dataset):
             print('BIWI: loading from file.')
             self.data_list = []
             audio_set = set()
-            for name in os.listdir(path.join(data_path, 'audio')):
+            for name in os.listdir(path.join(self.data_path, 'audio')):
                 if 'cut' in name:
                     audio_set.add(name.split('_cut.wav')[0])
             
             subjects = self.train_subjects if dataset_type == 'train' else self.test_subjects
-            for person in sorted(os.listdir(path.join(data_path, 'images'))): # stable index for every call
-                for idx_str in sorted(os.listdir(path.join(data_path, 'images', person))):
+            for person in sorted(os.listdir(path.join(self.data_path, 'images'))): # stable index for every call
+                for idx_str in sorted(os.listdir(path.join(self.data_path, 'images', person))):
                     name = person + '_' + idx_str
                     if (person in subjects) and (name in audio_set) and (name not in self.bad_sample):
                         self.data_list.append({'name':name, 
-                            'img_path': path.join(data_path, 'images', person, idx_str),
-                            'params_path': path.join(data_path, 'fit_output', person, idx_str),
-                            'wav_path': path.join(data_path, 'audio', f'{name}_cut.wav')})
+                            'img_path': path.join(self.data_path, 'images', person, idx_str),
+                            'params_path': path.join(self.data_path, 'fit_output', person, idx_str),
+                            'wav_path': path.join(self.data_path, 'audio', f'{name}_cut.wav')})
                         if debug > 0 and len(self.data_list) >= debug_max_load:
                             break
             if debug == 0: # data already split in _train/test.pt
                 # auto parse dataset
                 print('auto parse dataset')
-                self.data_list = parse_dataset(self, path.join(data_path, 'biwi_' + dataset_type + '.pt'))
+                self.data_list = parse_dataset(self, path.join(self.data_path, 'biwi_' + dataset_type + '.pt'))
                 self.preloaded = True
         else:
             print('BIWI: loading from biwi_' + dataset_type + '.pt')
-            self.data_list = torch.load(path.join(data_path, 'biwi_' + dataset_type + '.pt'), map_location='cpu')
+            self.data_list = torch.load(path.join(self.data_path, 'biwi_' + dataset_type + '.pt'), map_location='cpu')
         
         print('BIWI: load ', len(self.data_list), ' samples')
     
@@ -392,7 +391,7 @@ class BIWIDataset(Dataset):
 
 class BaselineBIWIDataset(BIWIDataset):
     '''
-    deprecated
+    @deprecated
 
     biwi dataset(test mode) + directly load .vl files
     '''
@@ -499,7 +498,7 @@ class VOCASET(Dataset):
             if result_dict['wav'].size(0) < 16000*self.min_sec or result_dict['wav'].size(0) > 16000*self.max_sec:
                 return None
             
-            # read fitted files
+            # read fitted samples (code dict generated by fitting module)
             with open(os.path.join(result_dict['path'], 'params.json'), 'r') as fp:
                 params = torch.asarray(json.load(fp))
             result_dict['params'] = params[:, 100:]
@@ -521,11 +520,11 @@ class BaselineVOCADataset(VOCASET):
     def __init__(self, dataset_type, device):
         super().__init__(dataset_type=dataset_type, device=device, debug=0)
         self.template = {}
-        self.person_path = os.path.join(data_path, 'fit_output')
+        self.person_path = os.path.join(self.data_path, 'fit_output')
         for person in sorted(os.listdir(self.person_path)):
             self.template[person] = {
                 'obj': Mesh(Mesh.read_obj(os.path.join(self.person_path, person, 'sentence01','ori', '0.obj')),'flame'),
-                'ply': os.path.join(data_path, 'templates',  person + '.ply')
+                'ply': os.path.join(self.data_path, 'templates',  person + '.ply')
             }
 
     def __getitem__(self, index):
@@ -586,7 +585,7 @@ class LRS2Dataset(Dataset):
         self.min_sec = lrs2_conf['min_sec']
         self.max_sec = lrs2_conf['max_sec']
         self.fps = lrs2_conf['fps']
-        self.preloaded = path.exists(path.join(data_path, 'lrs2_' + dataset_type + '.pt')) and debug == 0
+        self.preloaded = path.exists(path.join(self.data_path, 'lrs2_' + dataset_type + '.pt')) and debug == 0
 
         if not self.preloaded:
             self.fan = FANDetector(device=device)
@@ -596,7 +595,7 @@ class LRS2Dataset(Dataset):
             print('LRS2: loading from file')
             txt_name = 'train.txt' if dataset_type == 'train' else 'val.txt'
             assert(dataset_type != 'all') # not supported yet
-            with open(os.path.join(data_path,txt_name)) as file:
+            with open(os.path.join(self.data_path,txt_name)) as file:
                 lines = file.readlines() # e.g. 6300370419826092098/00007
                 lines = [line.rstrip() for line in lines]
                 self.video_set = set(lines)
@@ -619,11 +618,11 @@ class LRS2Dataset(Dataset):
             if debug == 0: # data already split in _train/test.pt
                 # auto parse dataset
                 print('auto parse dataset')
-                self.data_list = parse_dataset(self, path.join(data_path, 'lrs2_' + dataset_type + '.pt'), max_size=3000 if dataset_type == 'train' else 500)
+                self.data_list = parse_dataset(self, path.join(self.data_path, 'lrs2_' + dataset_type + '.pt'), max_size=3000 if dataset_type == 'train' else 500)
                 self.preloaded = True
         else:
             print('LRS2: loading from lrs2_' + dataset_type + '.pt')
-            self.data_list = torch.load(path.join(data_path, 'lrs2_' + dataset_type + '.pt'), map_location='cpu')
+            self.data_list = torch.load(path.join(self.data_path, 'lrs2_' + dataset_type + '.pt'), map_location='cpu')
         
         
         print('LRS2: load ', len(self.data_list), ' samples')

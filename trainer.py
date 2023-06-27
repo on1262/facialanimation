@@ -16,8 +16,7 @@ from dataset import BaselineVOCADataset, EnsembleDataset, FACollate_fn
 from utils.balance_data import cal_hist
 from utils.config_loader import GBL_CONF, PATH
 from utils.converter import convert_img, save_img
-from utils.fitting.fit import approx_transform_mouth, get_mouth_landmark
-from utils.fitting.fit_utils import Mesh
+from fitting import approx_transform_mouth, get_mouth_landmark, Mesh
 from utils.flexible_loader import FlexibleLoader
 from utils.generic import vertices2nparray, load_model_dict
 from utils.grad_check import GradCheck

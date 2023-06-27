@@ -1,27 +1,21 @@
-import sys
-sys.path.append('/home/chenyutong/facialanimation')
 import subprocess
-import argparse
 import numpy as np
 from utils.interface import FLAMEModel
 import torch
 import os
-from queue import SimpleQueue, Queue
-from threading import Thread
-from math import sqrt
 from torch import multiprocessing as mp
 from fit_utils import *
-import random
+from fitting.fit import get_landmark
 import json
 import time
-import struct
+from utils.config_loader import GBL_CONF, PATH
 
-'''
-estimate and apply an approx transform: nose is at origin, Y+ is up, Z+ is front
-input: mesh, source=other mesh, target=standard mesh
-output: source mesh in zero pose
-'''
 def approx_transform(source:Mesh, target:Mesh, frac_scale=False, return_lmk=True):
+    '''
+    estimate and apply an approx transform: nose is at origin, Y+ is up, Z+ is front
+    input: mesh, source=other mesh, target=standard mesh
+    output: source mesh in zero pose
+    '''
     # step 0: extract landmarks
     lmk_s = get_landmark(source, mouth=False)
     lmk_t = get_landmark(target, mouth=False)
@@ -65,30 +59,6 @@ def approx_transform(source:Mesh, target:Mesh, frac_scale=False, return_lmk=True
     else:
         return source
 
-def get_fit_config(phase:str):
-    conf = {}
-    if phase == 'shape':
-        conf['max_iter'] = 100
-        conf['lr'] = 1e-2
-        conf['stop_eps'] = 0
-    elif phase == 'shape_2':
-        conf['max_iter'] = 60
-        conf['lr'] = 2e-2
-        conf['stop_eps'] = 0
-    elif phase == 'shape_quick':
-        conf['max_iter'] = 300
-        conf['lr'] = 1e-3
-        conf['stop_eps'] = 0
-    elif phase == 'detail':
-        conf['max_iter'] = 300
-        conf['lr'] = 5e-3
-        conf['stop_eps'] = 0
-    elif phase == 'detail_quick':
-        conf['max_iter'] = 300
-        conf['lr'] = 5e-3
-        conf['stop_eps'] = 0
-    return conf
-
 def fitting(flame:FLAMEModel, targets:list, init_param, return_v=False):
     # init
     seqs_len = len(targets)
@@ -107,7 +77,7 @@ def fitting(flame:FLAMEModel, targets:list, init_param, return_v=False):
     opt = torch.optim.Adam([fitted_param], lr=0, weight_decay=0)
     for phase in phases:
         print('stage: ', phase)
-        conf = get_fit_config(phase)
+        conf = GBL_CONF['dataset']['vocaset']['fitting'][phase]
         for g in opt.param_groups:
             g['lr'] = conf['lr']
         for iter in range(conf['max_iter']):
@@ -167,13 +137,10 @@ def fit_sequence(flame, f_std, source_path_list, output_dir):
     for idx in range(len(mesh_list)):
         mesh_list[idx] = approx_transform(mesh_list[idx], f_std, return_lmk=False)
         Mesh.write_obj('flame', mesh_list[idx].v, os.path.join(output_dir, 'ori', f'{idx}.obj'))
-    # fit idx 0
-    # params_0 = fit_mesh(None, flame, f_std, mesh_list[0], os.path.join(output_dir, '0.obj'))
     # fit sequence
     params_1 = fit_mesh(None, flame, f_std, mesh_list, [os.path.join(output_dir, f'{idx}.obj') for idx in range(0, len(mesh_list),1)])
     # write params file
     with open(os.path.join(output_dir, 'params.json'), 'w') as fp:
-        # json.dump(torch.cat([params_0, params_1], dim=0).tolist(), fp)
         json.dump(params_1.tolist(), fp)
     print('finished', output_dir)
 
@@ -214,8 +181,8 @@ def fit_multi_sequences(source_dir_list, output_list, enable_mp=False):
 
 if __name__ == '__main__':
     # init
-    data_dir= r'/home/chenyutong/facialanimation/dataset_cache/VOCASET'
-    output_dir = r'/home/chenyutong/facialanimation/dataset_cache/VOCASET/fit_output2'
+    data_dir= PATH['dataset']['vocaset']
+    output_dir = os.path.join(PATH['dataset']['cache'], 'vocaset', 'fit_output')
     subprocess.run(['rm','-rf', output_dir])
     os.makedirs(output_dir, exist_ok=True)
     input_list = []

@@ -35,6 +35,28 @@ vocaset:
   test_subjects: {'FaceTalk_170809_00138_TA', 'FaceTalk_170731_00024_TA'}
   min_sec: 1.0
   max_sec: 10.0
+  # fitting configs
+  fitting:
+    shape:
+      max_iter: 100
+      lr: 1.0e-2
+      stop_eps: 0.0
+    shape_2:
+      max_iter: 60
+      lr: 2.0e-2
+      stop_eps: 0.0
+    shape_quick:
+      max_iter: 300
+      lr: 1.0e-3
+      stop_eps: 0.0
+    detail:
+      max_iter: 300
+      lr: 5.0e-3
+      stop_eps: 0.0
+    detail_quick:
+      max_iter: 300
+      lr: 5.0e-3
+      stop_eps: 0.0
   # debug configs
   debug: 0
   debug_load_size: 16
