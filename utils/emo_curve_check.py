@@ -2,7 +2,7 @@ import os
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image
-from converter import video2sequence, convert_img, save_img
+from utils.converter import video2sequence, convert_img, save_img
 import os.path as path
 import argparse
 

@@ -18,7 +18,7 @@ All rights reserved.
 """
 import sys
 from ImageTestDataset import TestData
-from models.DECA import DecaModule
+from .models.DECA import DecaModule
 import numpy as np
 import os
 import torch

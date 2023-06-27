@@ -4,7 +4,7 @@ from utils.interface import FLAMEModel
 import torch
 import os
 from torch import multiprocessing as mp
-from fit_utils import *
+from fitting.fit_utils import *
 from fitting.fit import get_landmark
 import json
 import time

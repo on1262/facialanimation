@@ -12,6 +12,7 @@ class Configs():
             with open(osjoin(config_dir, name + '.yml')) as f:
                 self.conf[name] = yaml.load(f, Loader=yaml.SafeLoader)
         # load yaml from model dir
+        self.conf['model'] = {}
         model_path = self.conf['global']['paths']['model']
         for model_name in os.listdir(model_path):
             model_conf = os.path.join(model_path, model_name, 'config.yml')
@@ -24,5 +25,5 @@ class Configs():
         return self.conf[name].copy()
     
 
-GBL_CONF = Configs('.', '../configs')
+GBL_CONF = Configs('./configs')
 PATH = GBL_CONF['global']['paths']

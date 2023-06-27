@@ -237,7 +237,7 @@ class DANModel():
 
 class FaceFormerConfig:
     def __init__(self, device):
-        conf = GBL_CONF['interface']['faceformer']
+        conf = GBL_CONF['inference']['faceformer']
         self.model_name = conf['model_name']
         self.dataset = conf['dataset']
         self.fps = conf['fps']
@@ -256,14 +256,15 @@ class FaceFormerModel:
     def __init__(self, device):
         # config
         config = FaceFormerConfig(device)
+        self.config = config
         self.device = device
         # build model
         self.model = faceformer.Faceformer(config)
-        self.model.load_state_dict(torch.load(os.path.join('FaceFormer', config.dataset, '{}.pth'.format(config.model_name)), map_location=self.device))
+        self.model.load_state_dict(torch.load(PATH['3rd']['faceformer']['state_dict'], map_location=self.device))
         self.model = self.model.to(torch.device(device))
         self.model.eval()
         # init
-        self.processor = Wav2Vec2Processor.from_pretrained("FaceFormer/facebook/wav2vec2-base-960h")
+        self.processor = Wav2Vec2Processor.from_pretrained(PATH['3rd']['faceformer']['wav2vec2'])
         
         
         self.template = {}
@@ -273,7 +274,7 @@ class FaceFormerModel:
         for ply in plys:
             plydata = plyfile.PlyData.read(os.path.join(template_dir, ply))
             tmp_tensor = torch.as_tensor(
-                np.asarray([plydata['vertex']['x'], plydata['vertex']['y'], plydata['vertex']['z']]).T.reshape((1, self.config.vertice_dim)), 
+                np.asarray([plydata['vertex']['x'], plydata['vertex']['y'], plydata['vertex']['z']]).T.reshape((1, config.vertice_dim)), 
                 device=self.device) # N, 3
             self.template[ply.split('.')[0]] = tmp_tensor
         self.train_subjects_list = [i for i in config.train_subjects.split(" ")]
@@ -289,8 +290,10 @@ class FaceFormerModel:
         audio_feature = np.reshape(audio_feature,(-1,audio_feature.shape[0]))
         audio_feature = torch.FloatTensor(audio_feature).to(device=self.device)
         # use ground truth when possible
-        if 'name' in data.keys(): 
-            tmp = self.template[data['name'].split('=')[0]]
+        if 'name' in data.keys():
+            # Warning: batchsize should be 1
+            assert(len(data['name']) == 1)
+            tmp = self.template[data['name'][0].split('=')[0]]
         else:
             tmp = self.template[self.config.subject]
         prediction = self.model.predict(audio_feature, tmp, self.one_hot)

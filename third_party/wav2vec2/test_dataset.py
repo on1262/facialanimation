@@ -9,8 +9,8 @@ import soundfile as sf
 import platform
 
 print('testing dataset')
-root_path_windows = r"F:\Project\FacialAnimation\facialanimation\wav2vec2"
-root_path_linux = r"/home/chenyutong/project/FacialAnimation/wav2vec2"
+root_path_windows = r"third_party/wav2vec2"
+root_path_linux = r"third_party/wav2vec2"
 root_path = root_path_linux
 if platform.system() == "Windows":
   root_path = root_path_windows

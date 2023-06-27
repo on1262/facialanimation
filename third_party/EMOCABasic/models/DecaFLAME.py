@@ -50,7 +50,7 @@ class FLAME(nn.Module):
     def __init__(self):
         super(FLAME, self).__init__()
         print("creating the FLAME Decoder")
-        with open('/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/geometry/generic_model.pkl', 'rb') as f:
+        with open('third_party/EMOCABasic/data/FLAME/geometry/generic_model.pkl', 'rb') as f:
             # flame_model = Struct(**pickle.load(f, encoding='latin1'))
             ss = pickle.load(f, encoding='latin1')
             flame_model = Struct(**ss)
@@ -83,7 +83,7 @@ class FLAME(nn.Module):
                                                           requires_grad=False))
 
         # Static and Dynamic Landmark embeddings for FLAME
-        lmk_embeddings = np.load('/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/geometry/landmark_embedding.npy', allow_pickle=True, encoding='latin1')
+        lmk_embeddings = np.load('third_party/EMOCABasic/data/FLAME/geometry/landmark_embedding.npy', allow_pickle=True, encoding='latin1')
         lmk_embeddings = lmk_embeddings[()]
         self.register_buffer('lmk_faces_idx', torch.tensor(lmk_embeddings['static_lmk_faces_idx'], dtype=torch.long))
         self.register_buffer('lmk_bary_coords',
@@ -246,7 +246,7 @@ class FLAMETex(nn.Module):
         mu_key = 'MU'
         pc_key = 'PC'
         n_pc = 199
-        tex_path = '/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/texture/FLAME_albedo_from_BFM.npz'
+        tex_path = 'third_party/EMOCABasic/data/FLAME/texture/FLAME_albedo_from_BFM.npz'
         tex_space = np.load(tex_path)
         texture_mean = tex_space[mu_key].reshape(1, -1)
         texture_basis = tex_space[pc_key].reshape(-1, n_pc)

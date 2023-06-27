@@ -3,7 +3,7 @@ import numpy as np
 import sys, os
 from plyfile import PlyData
 import numpy as np
-from fitting.fit_utils import Mesh, get_mouth_landmark, get_landmark_idx
+from fitting import Mesh, get_mouth_landmark, get_landmark_idx
 from utils.config_loader import PATH
 
 def normalize(vec):

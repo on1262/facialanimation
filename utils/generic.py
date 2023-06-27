@@ -16,10 +16,9 @@ def multi_imgs_2_video(img_path, audio_path, out_path):
 def load_model_dict(model_path, device):
     '''load model from model dir, e.g. ./models/tf_emo_4/'''
     print('load model from: ', model_path)
-    save_dir = os.path.dirname(model_path)
-    model_name = os.path.split(save_dir)[1]
+    model_name = os.path.split(model_path)[-1]
     Model = importlib.import_module('models.' + model_name + '.model').Model
-    latest_file = latest_file_path(os.path.join(model_path, 'saved_model'))
+    latest_file = latest_file_path(os.path.join(model_path, 'saved_model'), '.pth')
     sd = torch.load(latest_file)
     return sd, Model
 

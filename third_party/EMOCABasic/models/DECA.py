@@ -23,18 +23,14 @@ https://github.com/YadiraF/DECA/
 
 import os, sys
 import torch
-import torchvision
 import torch.nn.functional as F
 import numpy as np
-# from time import time
 from skimage.io import imread
-import cv2
-from pathlib import Path
-#from pytorch_lightning import LightningModule
+sys.path.append('third_party/EMOCABasic')
 import decautils.DecaUtils as util
-from models.Renderer import SRenderY
-from models.DecaEncoder import ResnetEncoder
-from models.DecaFLAME import FLAME, FLAMETex
+from .Renderer import SRenderY
+from .DecaEncoder import ResnetEncoder
+from .DecaFLAME import FLAME, FLAMETex
 
 
 
@@ -210,12 +206,12 @@ class DECA(torch.nn.Module):
 
 
     def _setup_renderer(self):
-        self.render = SRenderY(224, obj_filename='/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/geometry/head_template.obj', uv_size=256)  # .to(self.device)
+        self.render = SRenderY(224, obj_filename='third_party/EMOCABasic/data/FLAME/geometry/head_template.obj', uv_size=256)  # .to(self.device)
         # face mask for rendering details
-        mask = imread('/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/mask/uv_face_mask.png').astype(np.float32) / 255.
+        mask = imread('third_party/EMOCABasic/data/FLAME/mask/uv_face_mask.png').astype(np.float32) / 255.
         mask = torch.from_numpy(mask[:, :, 0])[None, None, :, :].contiguous()
         self.uv_face_mask = F.interpolate(mask, [256,256])
-        mask = imread('/home/chenyutong/facialanimation/EMOCABasic/data/FLAME/mask/uv_face_eye_mask.png').astype(np.float32) / 255.
+        mask = imread('third_party/EMOCABasic/data/FLAME/mask/uv_face_eye_mask.png').astype(np.float32) / 255.
         mask = torch.from_numpy(mask[:, :, 0])[None, None, :, :].contiguous()
         uv_face_eye_mask = F.interpolate(mask, [256, 256])
         self.register_buffer('uv_face_eye_mask', uv_face_eye_mask)

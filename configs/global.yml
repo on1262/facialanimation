@@ -30,7 +30,9 @@ paths:
       pretrained: ./third_party/wav2vec2/pretrained_model
       cache: ./third_party/wav2vec2/cache
     faceformer:
-      template: ./third_party/FaceFormer/templates.pkl
+      template: ./third_party/FaceFormer/vocaset/template_pkl
+      state_dict: ./third_party/FaceFormer/vocaset/vocaset.pth
+      wav2vec2: ./third_party/FaceFormer/facebook/wav2vec2-base-960h
       
 seed: 1000
 device: "cuda:0"

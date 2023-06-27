@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/chenyutong/facialanimation')
 from utils.interface import EMOCAModel
 from transformers import Wav2Vec2Model, Wav2Vec2Config
 from os.path import join
@@ -211,7 +209,6 @@ class Model(nn.Module):
         self.param_predictor = ParamPredictor(dim_style=self.dim_style, dim_aud=self.hidden, dim_out=56)
         self.param_fixer = ParamFixer(dim_emo_ebd=self.hidden, dim_params=56)
 
-        #self.pred_layer.load_state_dict(torch.load('/home/chenyutong/facialanimation/Model/lstm_emo/pred_pretrained.pth'))
         #for p in self.pred_layer.parameters(recurse=True):
         #    p.requires_grad = False
         self.emo_ebd_layer = EmoEmbeddingLayer(emo_channels, out_hidden=self.hidden, in_hidden=self.hidden, dp=dp)

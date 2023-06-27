@@ -24,7 +24,7 @@ import numpy as np
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-import models.ResNet as resnet
+from . import ResNet as resnet
 
 
 class BaseEncoder(nn.Module):

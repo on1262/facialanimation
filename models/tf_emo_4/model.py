@@ -1,6 +1,5 @@
-import sys
-sys.path.append('/home/chenyutong/facialanimation')
 from utils.interface import EMOCAModel
+from utils.config_loader import GBL_CONF, PATH
 from transformers import Wav2Vec2Model
 from os.path import join
 import torch
@@ -58,11 +57,11 @@ class EmoPredLayer(nn.Module):
         out = apply_V_mask(out)
         out = (out + 1) * 0.5 * (self.emo_max - self.emo_min) + self.emo_min
         # parse
-        out_emo_tensor = torch.zeros((seq_len.sum(), self.c_emo), device=x.device)
+        out_emo_logits = torch.zeros((seq_len.sum(), self.c_emo), device=x.device)
         for idx in range(seq_len.size(0)):
             start = 0 if idx == 0 else seq_len[:idx].sum()
-            out_emo_tensor[start:start+seq_len[idx],:] = out[idx, 0:seq_len[idx],:]
-        return out_emo_tensor # not the last output
+            out_emo_logits[start:start+seq_len[idx],:] = out[idx, 0:seq_len[idx],:]
+        return out_emo_logits # not the last output
 
 class WavLayer(nn.Module):
     def __init__(self, in_channels, out_channels,dp=0.1):
@@ -81,7 +80,7 @@ class EmoEmbeddingLayer(nn.Module):
     """
     EmoEmbeddingLayer
     input:
-        emo_tensor: Batch, seq_len, emo_channel
+        emo_logits: Batch, seq_len, emo_channel
     output:
         Batch, seq_len, out_hidden
     """
@@ -94,23 +93,23 @@ class EmoEmbeddingLayer(nn.Module):
         self.dropout = nn.Dropout(dp)
         
     
-    def forward(self, emo_tensor, seqs_len):
-        #assert(emo_tensor.dim()==3)
-        emo_tensor = self.dropout(emo_tensor)
+    def forward(self, emo_logits, seqs_len):
+        #assert(emo_logits.dim()==3)
+        emo_logits = self.dropout(emo_logits)
         try:
-            assert(emo_tensor.size(0) == torch.sum(seqs_len))
+            assert(emo_logits.size(0) == torch.sum(seqs_len))
         except Exception as e:
-            print('emo_tensor:', emo_tensor.size(), ' seqs_len:', seqs_len)
-            min_s = min(emo_tensor.size(0), torch.sum(seqs_len))
-            emo_tensor = emo_tensor[:min_s,:]
+            print('emo_logits:', emo_logits.size(), ' seqs_len:', seqs_len)
+            min_s = min(emo_logits.size(0), torch.sum(seqs_len))
+            emo_logits = emo_logits[:min_s,:]
             if seqs_len.size(0) == 1:
                 seqs_len[0] = min_s
-        out_emo_tensor = torch.zeros(seqs_len.size(0), seqs_len.max(), self.c_emo, device=emo_tensor.device)
+        out_emo_logits = torch.zeros(seqs_len.size(0), seqs_len.max(), self.c_emo, device=emo_logits.device)
         for idx in range(seqs_len.size(0)):
             start = 0 if idx == 0 else seqs_len[:idx].sum()
-            out_emo_tensor[idx, 0:seqs_len[idx],:] = emo_tensor[start:start+seqs_len[idx],:]
-        ebd = self.style_embedding.expand(seqs_len.size(0), self.c_emo, self.hid).to(emo_tensor.device)
-        return torch.bmm(out_emo_tensor, ebd)
+            out_emo_logits[idx, 0:seqs_len[idx],:] = emo_logits[start:start+seqs_len[idx],:]
+        ebd = self.style_embedding.expand(seqs_len.size(0), self.c_emo, self.hid).to(emo_logits.device)
+        return torch.bmm(out_emo_logits, ebd)
 
 class StyleExtractor(nn.Module):
     def __init__(self, dim_hidden, dim_output, num_heads, n_blocks, dp):
@@ -161,9 +160,9 @@ class ParamFixer(nn.Module):
             nn.Conv1d(128, dim_params, 1)
         )
 
-    def forward(self, params, emo_tensor):
-        # print('params:', params.size(), 'emo_tensor:', emo_tensor.size())
-        params_in = torch.cat([params, emo_tensor], dim=-1)
+    def forward(self, params, emo_logits):
+        # print('params:', params.size(), 'emo_logits:', emo_logits.size())
+        params_in = torch.cat([params, emo_logits], dim=-1)
         params_in = self.norm(params_in).permute(0,2,1)
         return (self.convs(params_in) + params.permute(0,2,1)).permute(0,2,1)
 
@@ -193,6 +192,7 @@ class Model(nn.Module):
         self._norm_check = False
 
         try:
+            wav2vec_path = PATH['3rd']['wav2vec2']['pretrained']
             model = Wav2Vec2Model.from_pretrained(pretrained_model_name_or_path=None, \
                 config=join(wav2vec_path,'config.json'), state_dict=torch.load(join(wav2vec_path,'pytorch_model.bin')))
         except Exception as e:
@@ -207,7 +207,6 @@ class Model(nn.Module):
         self.param_predictor = ParamPredictor(dim_style=self.dim_style, dim_aud=self.hidden, dim_out=56)
         self.param_fixer = ParamFixer(dim_emo_ebd=self.hidden, dim_params=56)
 
-        #self.pred_layer.load_state_dict(torch.load('/home/chenyutong/facialanimation/Model/lstm_emo/pred_pretrained.pth'))
         #for p in self.pred_layer.parameters(recurse=True):
         #    p.requires_grad = False
         self.emo_ebd_layer = EmoEmbeddingLayer(emo_channels, out_hidden=self.hidden, in_hidden=self.hidden, dp=dp)
@@ -225,7 +224,7 @@ class Model(nn.Module):
 
     def batch_forward(self, in_dict): # used in training phase
         # generate emotion tensor for no-video dataset
-        assert('emo_tensor_conf' in in_dict.keys())
+        assert('emo_logits_conf' in in_dict.keys())
         return self.forward(in_dict)
     
     def smooth(self, params):
@@ -237,12 +236,12 @@ class Model(nn.Module):
 
     def test_forward(self, in_dict):
         assert(in_dict['wav'].size(0) == 1) # batch_size should be 1
-        assert('emo_tensor_conf' in in_dict.keys())
+        assert('emo_logits_conf' in in_dict.keys())
         '''
         emo tensor conf:
         no_use: output without fixer
-        use: use input emo-tensor, use predicted emo-tensor if input is None
-        one-hot: use predicted emo-tensor with one-hot enhancement
+        use: use input emo-logits, use predicted emo-logits if input is None
+        one-hot: use predicted emo-logits with one-hot enhancement
         '''
 
         if 'code_dict' in in_dict.keys() and in_dict['code_dict'] is not None:
@@ -251,24 +250,25 @@ class Model(nn.Module):
         else:
             in_dict['code_dict'] = None
 
-        if in_dict['emo_tensor_conf'] == ['one_hot']:
-            if in_dict.get('emo_tensor') is None:
+        if in_dict['emo_logits_conf'] == ['one_hot']:
+            if in_dict.get('emo_logits') is None:
                 in_dict['pred_only'] = True
-                in_dict['emo_tensor'] = self.forward(in_dict)
+                in_dict['emo_logits'] = self.forward(in_dict)
                 in_dict['pred_only'] = False
             assert(in_dict.get('emo_label') is not None)
-            labels = ['NEU', 'HAP', 'SAD', 'SUR', 'FEA', 'DIS', 'ANG']
-            convert_list = {0:0, 1:1, 3:2, 4:5, 5:4, 2:6}
-            emo_index = convert_list[in_dict['emo_label']]
-            print('adjust emo label:', labels[emo_index])
-            in_dict['emo_tensor'] -= in_dict['emo_tensor'].mean(dim=0) # normalize
+            # TODO
+            dan_labels = GBL_CONF['inference']['dan']['emo_label']
+            label_dict = {label:idx for idx, label in enumerate(dan_labels)}
+            emo_index = label_dict[in_dict['emo_label']]
+            print('emo label:', in_dict['emo_label'])
+            in_dict['emo_logits'] -= in_dict['emo_logits'].mean(dim=0) # normalize
             if in_dict.get('intensity') is None:
-                intensity = 0.8 # 0 to 1
+                intensity = GBL_CONF['inference']['inference_mode']['default_intensity'] # 0 to 1
             else:
                 intensity = in_dict['intensity']
-            in_dict['emo_tensor'][:, :] -= intensity
-            in_dict['emo_tensor'][:, emo_index] += (4*intensity)
-            in_dict['emo_tensor_conf'] = ['use']
+            in_dict['emo_logits'][:, :] -= intensity
+            in_dict['emo_logits'][:, emo_index] += (4*intensity)
+            in_dict['emo_logits_conf'] = ['use']
         
         in_dict['smooth'] = False if 'smooth' not in in_dict.keys() or in_dict['smooth'] != True else True
         out =  self.forward(in_dict)
@@ -277,19 +277,19 @@ class Model(nn.Module):
     def forward(self, in_dict):
         wavs = in_dict.get('wav')
         seqs_len = in_dict.get('seqs_len')
-        emo_tensor = in_dict.get('emo_tensor')
+        emo_logits = in_dict.get('emo_logits')
         code_dict = in_dict.get('code_dict')
         pred_only = in_dict.get('pred_only')
         smooth = in_dict.get('smooth')
-        emo_tensor_conf = in_dict.get('emo_tensor_conf')
+        emo_logits_conf = in_dict.get('emo_logits_conf')
 
         assert(wavs is not None and seqs_len is not None)
         dev = wavs.device # regard as input device
         output = {}
         # input check
         assert(wavs.dim() == 2)
-        if emo_tensor is not None:
-            emo_tensor = emo_tensor.to(wavs.device)
+        if emo_logits is not None:
+            emo_logits = emo_logits.to(wavs.device)
         seq_length = torch.max(seqs_len).item()
 
         # generate mask
@@ -315,20 +315,20 @@ class Model(nn.Module):
         if pred_only:
             return pred
         else:
-            output['pred_emo_tensor'] = pred
+            output['pred_emo_logits'] = pred
         
-        if emo_tensor_conf == ['use'] and emo_tensor is None:
-            emo_tensor = pred
-            in_dict['emo_tensor'] = pred
+        if emo_logits_conf == ['use'] and emo_logits is None:
+            emo_logits = pred
+            in_dict['emo_logits'] = pred
         
         style = self.style_layer(wav_out)
         param_out = self.param_predictor(wav_out, style)
 
-        if emo_tensor is not None: # not all sample use emo_tensor
-            emo_ebd = self.emo_ebd_layer(emo_tensor, seqs_len).expand(wav_out.size(0),-1,-1)
+        if emo_logits is not None: # not all sample use emo_logits
+            emo_ebd = self.emo_ebd_layer(emo_logits, seqs_len).expand(wav_out.size(0),-1,-1)
             param_emo = self.param_fixer(param_out, emo_ebd)
-            for idx in range(len(emo_tensor_conf)):
-                if emo_tensor_conf[idx] == 'no_use': # TODO
+            for idx in range(len(emo_logits_conf)):
+                if emo_logits_conf[idx] == 'no_use': # TODO
                     param_emo[idx,...] = param_out[idx,...]
         else:
             param_emo = None

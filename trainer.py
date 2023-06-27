@@ -121,7 +121,7 @@ class Trainer():
         self.registered_loss = {'out_loss' : 0} # add loss item from out_dict in get_loss_item()
 
         # TODO complete grad check
-        # self.plot_folder = '/home/chenyutong/facialanimation/figures'
+        # self.plot_folder = '/figures'
         # self.gradcheck = GradCheck(self.model, (self.model_name + '_' + str(self.batch_size)) if self.debug == 0 else self.# model_name + '-debug', plot=True, plot_folder=self.plot_folder)
         
         os.makedirs(self.save_path, exist_ok=True)

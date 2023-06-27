@@ -775,7 +775,7 @@ class TESTDataset(Dataset):
         self.data_list = []
         for file in sorted(os.listdir(self.in_dir)): # stable index for every call
             name = file.split('.')[0]
-            if file.split('.')[-1] not in ['.mp4', '.flv', '.wav']:
+            if file.split('.')[-1] not in ['mp4', 'flv', 'wav']:
                 continue
             # try fetch emo label
             label = None
