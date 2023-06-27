@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import os
+from utils.config_loader import PATH
+from matplotlib import pyplot as plt
 
 def hist_inv_func(hist:torch.Tensor, data_min, data_max, X:torch.Tensor, max_amp=10):
     hist = hist.view(-1)
@@ -25,7 +27,6 @@ def cal_hist(data:torch.Tensor, bins=100, save_fig=False, name_list=None):
     hist[hist < 1] = 1 # avoid div 0
     hist = hist / hist.mean()
     if save_fig:
-        from matplotlib import pyplot as plt
         fig, ax = plt.subplots(figsize=(10,5), dpi=160)
         # plot hist
         x = (data_min + (np.arange(0.5, bins+0.5) / bins) * (data_max - data_min))
@@ -36,13 +37,13 @@ def cal_hist(data:torch.Tensor, bins=100, save_fig=False, name_list=None):
         # plot regression result
         y_func = hist_inv_func(hist, data_min, data_max, torch.from_numpy(x))
         ax.plot(x, y_func.numpy(), linewidth=2.0)
-        os.makedirs(os.path.join('/home/chenyutong/facialanimation/Visualize', 'hist'), exist_ok=True)
+        os.makedirs(os.path.join(PATH['inference']['visualize'], 'hist'), exist_ok=True)
         file_name = 'hist' if name_list is None else ('hist_' + name_list[0])
-        plt.savefig(os.path.join('/home/chenyutong/facialanimation/Visualize', 'hist', file_name + '.png'))
-        print('saved as' , os.path.join('/home/chenyutong/facialanimation/Visualize', 'hist', file_name + '.png'))
+        plt.savefig(os.path.join(PATH['inference']['visualize'], 'hist', file_name + '.png'))
+        print('saved as' , os.path.join(PATH['inference']['visualize'], 'hist', file_name + '.png'))
         plt.close(fig)
     return {'hist':hist,'min':data_min,'max':data_max}
 
 if __name__ == '__main__':
     count = 3000
-    cal_hist(torch.randn(2,count), bins=30, save_fig=True, name_list=['a','b'])
+    cal_hist(torch.randn(2, count), bins=30, save_fig=True, name_list=['a','b'])

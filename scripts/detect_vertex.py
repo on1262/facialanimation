@@ -1,16 +1,14 @@
 import torch
-from decimal import Decimal
-from interface import EMOCAModel
-from converter import save_img, convert_img
+from utils.interface import EMOCAModel
 import os
 import json
 
-'''
-upper lip: 3547
-left corner: 2845, right corner: 1730
-bottom lip: 3513
-'''
 def dump_flame():
+    '''
+        upper lip: 3547
+        left corner: 2845, right corner: 1730
+        bottom lip: 3513
+    '''
     emoca = EMOCAModel(device='cuda:4', decoder_only=True)
     code_dict = {'expcode':torch.zeros(1,50),'shapecode': torch.zeros(1,100), 'posecode':torch.zeros(1,6), 'cam': torch.zeros(1,3)}
     code_dict['cam'][0,0] = 10
@@ -29,27 +27,3 @@ def dump_flame():
     with open('face.json', mode='w') as f:
         json.dump({'verts':outs['verts'].tolist(), 'faces':outs['faces'].tolist()}, f)
     print('done')
-
-def dump_biwi():
-    with open('templete/BIWI.vl', mode='rb') as f:
-        count = f.read(4) # unsigned long
-        for i in range(count):
-            
-
-if __name__ == '__main__':
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    

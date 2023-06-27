@@ -1,10 +1,6 @@
-import glob
 import json
 import os
-import pickle
-import sys
 from threading import Thread
-import importlib
 
 import numpy as np
 import plyfile

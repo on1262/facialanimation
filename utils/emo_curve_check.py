@@ -1,6 +1,4 @@
-import sys
-sys.path.append('/home/chenyutong/facialanimation/utils')
-from interface import DANModel
+import os
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -33,6 +31,7 @@ def check_curve(dan_model, video_path, output_folder='.'):
 
 
 if __name__ == '__main__':
+    from interface import DANModel
     parser = argparse.ArgumentParser()
     parser.add_argument('--video_path', type=str)
     parser.add_argument('--output_folder', type=str, default='.')

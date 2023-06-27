@@ -1,12 +1,13 @@
 import torch.nn as nn
 
 from utils.balance_data import hist_inv_func_dict
+from utils.config_loader import PATH
 import torch
 import os, json
 
 
 def get_front_face_idx():
-    with open('/home/chenyutong/facialanimation/quick_fit/front-face-idx.json', 'r') as f:
+    with open(os.path.join(PATH['fitting'], 'front-face-idx.json'), 'r') as f:
         idx_list = json.load(f)['front_face']
     return idx_list
 
@@ -150,18 +151,3 @@ class EmoTensorPredFunc():
             start = 0 if idx == 0 else seqs_len[:idx].sum()
             tmp[start:start+seqs_len[idx],:] = self.smooth(gt_emo_tensor[start:start+seqs_len[idx],:])
         return (torch.abs(out_emo_tensor - tmp)).mean()
-
-# 这个是原来的备份
-class EmoTensorPredFunc_origin():
-    def __init__(self):
-        self.hist = None
-    
-    def set_hist(self, hist_list:list):
-        self.hist = hist_list
-
-    def cal_loss(self, out_emo_tensor, gt_emo_tensor):
-        assert(self.hist is not None)
-        loss_mask = gt_emo_tensor.detach().clone()
-        for idx in range(loss_mask.size(-1)):
-            loss_mask[:,idx] = hist_inv_func_dict(self.hist[idx], loss_mask[:,idx])
-        return (torch.abs(out_emo_tensor - gt_emo_tensor) * loss_mask).mean()

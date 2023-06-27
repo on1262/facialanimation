@@ -1,12 +1,10 @@
 import torch
 import numpy as np
 import sys, os
-from plyfile import PlyData, PlyElement
+from plyfile import PlyData
 import numpy as np
-sys.path.append('/home/chenyutong/facialanimation')
 from fitting.fit_utils import Mesh, get_mouth_landmark, get_landmark_idx
-from fitting.fit import Mesh, approx_transform, approx_transform_mouth
-import torch.multiprocessing as mp
+from utils.config_loader import PATH
 
 def normalize(vec):
     return vec / np.linalg.norm(vec)
@@ -24,6 +22,7 @@ def vertices2nparray(vertex):
 
 
 class DetailFixer():
+    '''add details from scan object file, reduce error caused by FLAME blendshape'''
     def __init__(self, template_path, target_area='mouth', fix_mesh=None):
         self.template = PlyData.read(template_path)
         if target_area == 'mouth':
@@ -46,11 +45,8 @@ class DetailFixer():
                 elif face_idx not in self.verts_dict[vert_idx]:
                     self.verts_dict[vert_idx].append(face_idx)
 
-
-    '''
-    思路是获取三角面片, 然后按照原面片->点的相对位置关系来得到新的点. 如果点在多个面片中, 则取平均
-    '''
     def fix_sequence(self, sequence:np.ndarray, cache_path=None, k_process=None):
+        '''track relational position of a point based on belonging triangle meshes'''
         origin = sequence[0] # origin face
         print(f'Fixing length={sequence.shape[0]}', end='')
         # new_seq = np.zeros(sequence.shape)
@@ -58,8 +54,6 @@ class DetailFixer():
         new_seq[:, self.vert_idx, :] = 0
         #for idx in range(sequence.shape[1]):
         for idx in self.vert_idx:
-            # if idx % 200 == 0:
-            #     print('.', end='')
             for face_idx in self.verts_dict[idx]:
                 source_ori, arr = self.read_triangle(origin, face_idx, idx,arr=None)
                 target_ori = np.asarray(list(self.template['vertex'][idx]))
@@ -97,7 +91,7 @@ class DetailFixer():
         return new_point
 
 if __name__ == '__main__':
-    test_path = r'/home/chenyutong/facialanimation/utils/detail_fixer_test'
+    test_path = os.path.join(PATH['inference']['module_test'], 'detail_fixer')
     template_path = os.path.join(test_path, 'template.ply')
     sequence_list = ['0.obj', '1.obj', '2.obj','3.obj', '4.obj']
     sequence_list = [os.path.join(test_path, s) for s in sequence_list]

@@ -7,9 +7,9 @@ from skimage.transform import rescale, estimate_transform, warp
 import numpy as np
 from threading import Thread
 
-# FAN is a multi-scale face detector, which is better than MTCNN
-class FANDetector():
 
+class FANDetector():
+    '''FAN is a multi-scale face detector, which is better than MTCNN'''
     def __init__(self, device, crop_size=224, scaling_factor=1.0, scale=1.25, threshold=0.5):
         import face_alignment
         self.face_detector = 'sfd'
@@ -139,6 +139,7 @@ class FANDetector():
             raise NotImplementedError
         return old_size, center
 
+
 class MTCNNDetector():
     def __init__(self, device, scale_up=1.0):
         self.device = device
@@ -146,10 +147,13 @@ class MTCNNDetector():
         self.scale_up = scale_up
         self.mtcnn = MTCNN(image_size=224, device=device, min_face_size=100, select_largest=False, post_process=False)
     
-    # input format: hw3RGB255_tu
-    # output: tensor
+    
+    
     def crop(self, input):
         '''
+        input format: hw3RGB255_tu
+        output: tensor
+
         input: PIL image, tensor, ndarray, list of above, dir path, file path
         output: batch*3*224*224 (single: batch=1)
         note: int tensor has no grad, do not use crop after flame output
@@ -225,12 +229,15 @@ class MTCNNDetector():
         
 if __name__ == '__main__':
     from converter import video2sequence, save_img, convert_img
-    imgs_list = video2sequence('./test/test_0.jpg', sample_step=10, return_path=False, o_code='mtcnn')
-    imgs_list += video2sequence('./test/test_1.jpg', sample_step=10, return_path=False, o_code='mtcnn')
+    from utils.config_loader import PATH
+    
+    module_test_path = os.path.join(PATH['inference']['module_test'], 'detector')
+    imgs_list = video2sequence(os.path.join(module_test_path, 'test_0.jpg'), sample_step=10, return_path=False, o_code='mtcnn')
+    imgs_list += video2sequence(os.path.join(module_test_path, 'test_1.jpg'), sample_step=10, return_path=False, o_code='mtcnn')
 
     img_tensor = torch.stack(imgs_list, dim=0) # 3hwRGB
     print(img_tensor.size())
     mctnn = MTCNNDetector(device=torch.device('cuda:0'), scale_up=1.7)
     out = mctnn.crop(img_tensor)
-    save_img(convert_img(out, i_code='mtcnn', o_code='tvsave'), './test/frame0_crop.png')
+    save_img(convert_img(out, i_code='mtcnn', o_code='tvsave'), os.path.join(module_test_path, 'frame0_crop.png'))
     print('Done')

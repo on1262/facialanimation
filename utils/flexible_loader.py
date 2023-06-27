@@ -3,6 +3,7 @@ import math
 
 
 class FlexibleLoader():
+    '''Dataloader with flexible batch size'''
     def __init__(self, dataset, batch_size:int, sampler, collate_fn, clip_max=True):
         self.dataset = dataset
         self.batch_size = batch_size

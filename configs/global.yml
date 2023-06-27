@@ -15,9 +15,11 @@ paths:
     output: ./inference/output
     cache: ./inference/cache
     baseline_test: ./inference/baseline_test
+    visualize: ./inference/visualize
   log: ./logs
   model: ./models
   script: ./scripts
+  fitting: ./fitting
   3rd:
     emoca:
       state_dict: ./third_party/EMOCABasic/data/emoca_basic.ckpt

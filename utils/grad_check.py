@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.pyplot import figure
 
-
-
 class GradCheck():
     def __init__(self, model, model_name, plot, plot_folder=None):
         self.plot = plot

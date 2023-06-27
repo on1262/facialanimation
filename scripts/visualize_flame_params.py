@@ -1,6 +1,6 @@
 import torch
-from interface import EMOCAModel
-from converter import save_img, convert_img
+from utils.interface import EMOCAModel
+from utils.converter import save_img, convert_img
 import os
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-import json
+import yaml
 import os
 import os.path as path
 from datetime import datetime
@@ -714,11 +714,16 @@ class EnsembleDataset(Dataset):
         print('Ensemble Dataset: check distribution')
         distri = {}
         for dataset in self.datasets:
-            distri[dataset.dataset_name] = check_params_distribution(dataset).tolist()
-        with open('distribution.json', 'w') as f:
-            json.dump(distri, f)
-        print('Distribution dumped at distribution.log')
+            dist = torch.zeros(56)
+            for data in dataset:
+                params = data['params']
+                dist += torch.mean(torch.abs(params), dim=0)
+            dist /= len(dataset)
+            distri[dataset.dataset_name] = dist.tolist()
+        with open(os.path.join(PATH['dataset']['cache'], 'distribution.yml'), 'w') as f:
+            yaml.dump(distri, f)
 
+    
     def __getitem__(self, in_ind):
         assert(in_ind < len(self))
         dataset_idx, sample_idx = self.index[in_ind]
