@@ -322,7 +322,12 @@ class VOCAModel:
         return torch.as_tensor(arrs).to(self.device)
 
 class BaselineConverter:
-    '''test mesh convertion precision. use converted ground truth as model output'''
+    '''
+    @deprecated
+
+    test mesh convertion precision. use converted ground truth as model output
+    
+    '''
     def __init__(self, device):
         self.device = device
         self.data_path = os.path.join(PATH['dataset']['biwi'], 'fit_output')

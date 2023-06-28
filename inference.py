@@ -84,6 +84,9 @@ class Inference():
         dataloader = FlexibleLoader(dataset, batch_size=1, sampler=None, collate_fn=FACollate_fn)
         for data in tqdm(dataloader, 'inference'):
             sample_name = data['name'][0]
+            if sample_name not in sample_configs:
+                print('Config not found, skip ', sample_name)
+                continue
             conf = sample_configs[sample_name]
             print('processing ', sample_name, 'conf=', conf)
 
@@ -105,8 +108,8 @@ class Inference():
                     data['emoca_imgs'] = self.emoca.decode(data['code_dict'], {'coarse'}, target_device=self.device)['output_images_coarse']
                     data['emoca_imgs'] = convert_img(data['emoca_imgs'], 'emoca', 'tvsave').to('cpu')
                     # generate ground truth emotion logits
-                    emo_logits_gt = self.dan.inference(convert_img(data['imgs'], 'store', 'dan')).detach().to(self.device) # batch, max_seq_len, 7
-                    plot_curve(emo_logits_gt, self.dan.labels, os.path.join(sample_out_dir, data['name'] + '_ori.png'))
+                    emo_logits_gt = self.dan.inference(convert_img(data['imgs'][0], 'store', 'dan')).detach().to(self.device) # batch, max_seq_len, 7
+                    plot_curve(emo_logits_gt, self.dan.labels, os.path.join(sample_out_dir, sample_name + '_ori.png'))
                 # clear ground truth
                 if 'code_dict' in data.keys():
                     print('reset code dict')
@@ -121,7 +124,7 @@ class Inference():
                 elif 'audio' in conf:
                     state_list =  ['_et_speech_driven','no_emo']
                 elif 'aud-cls' in conf:
-                    state_list = [conf.split('=')[-1] ,'no_emo',] # e.g. conf.split('=')[-1] = 'HAP'
+                    state_list = [conf.split('=')[-1], 'faceformer', 'no_emo',] # e.g. conf.split('=')[-1] = 'HAP'
                 elif 'emo-cls' in conf:
                     state_list = self.emo_cls
                 elif 'emo-ist' in conf:
@@ -129,6 +132,7 @@ class Inference():
                 
                 for state in state_list:
                     if state == 'faceformer':
+                        out_dict = {}
                         code_dict = {key:p[[0],:] for key, p in data['code_dict'][0].items()}
                         emoca_out = self.emoca.decode(code_dict, {'verts'}, target_device=self.device) # generate template with all code zero
                         verts = emoca_out['verts'].detach()
@@ -169,7 +173,7 @@ class Inference():
                     if state != 'faceformer':
                         out_dict = self.model.test_forward(data) # forward
                         if state == '_et_speech_driven': # plot predicted emotion logits
-                            plot_curve(data['emo_logits'], self.dan.labels, os.path.join(sample_out_dir, data['name'][0] + '_pred.png'))
+                            plot_curve(data['emo_logits'], self.dan.labels, os.path.join(sample_out_dir, sample_name + '_pred.png'))
                         if 'tex' in conf: # use texture extracted from input video
                             out_dict['imgs'] = self.emoca.decode(
                                 out_dict['code_dict'], {'coarse'}, target_device=self.device)['output_images_coarse']
@@ -199,7 +203,7 @@ class Inference():
                     elif 'emo-cls' in conf:
                         frame_img = [out_et_emo[key][i,...] for key in state_list]
                     elif 'aud-cls' in conf:
-                        frame_img = [out_et_emo[state_list[0]][i,...], out_no_emo[i,...]]
+                        frame_img = [out_et_emo[state_list[0]][i,...], out_ff[i, ...], out_no_emo[i,...]]
                     elif 'emo-ist' in conf:
                         frame_img = [out_et_emo[key][i,...] for key in state_list]
                     save_img(torch.cat(frame_img, -1), os.path.join(sample_cache_dir, '%04d.jpg' % i))

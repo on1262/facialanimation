@@ -19,7 +19,7 @@ faceformer:
   feature_dim: 64
   period: 30
   vertice_dim: 15069 # 5023*3=15069
-  train_subjects: "FaceTalk_170728_03272_TA FaceTalk_170904_00128_TA FaceTalk_170725_00137_TA FaceTalk_170915_00223_TA   FaceTalk_170811_03274_TA FaceTalk_170913_03279_TA FaceTalk_170904_03276_TA FaceTalk_170912_03278_TA"
+  train_subjects: "FaceTalk_170728_03272_TA FaceTalk_170904_00128_TA FaceTalk_170725_00137_TA FaceTalk_170915_00223_TA FaceTalk_170811_03274_TA FaceTalk_170913_03279_TA FaceTalk_170904_03276_TA FaceTalk_170912_03278_TA"
   val_subjects: "FaceTalk_170811_03275_TA FaceTalk_170908_03277_TA"
   test_subjects: "FaceTalk_170809_00138_TA FaceTalk_170731_00024_TA"
   condition: FaceTalk_170728_03272_TA
@@ -53,19 +53,19 @@ infer_dataset: # generate a temporal dataset based on inference input
   audio_sr: 16000
   fps: 30
   sample_configs: {
-    'hap_1' : 'video',
-    'ang_1' : 'video',
-    'test_1' : 'video',
-    'flyme2themoon_ori': 'video',
-    'flyme2themoon_2': 'emo-cls-tex',
-    'flyme2themoon_3': 'emo-ist-tex',
-    'AUD_faceformer_2': 'audio',
-    'AUD_faceformer_3': 'audio',
-    'AUD_earlier': 'emo-ist',
-    'AUD_voca_1':'audio',
-    'AUD_voca_2':'emo-cls',
-    'AUD_F6_01_cut':'audio',
-    'AUD_demo_2_happy' : 'aud-cls=HAP',
-    'AUD_demo_2_angry' : 'aud-cls=ANG',
-    'AUD_demo_2_sad' : 'aud-cls=SAD'
+    #'hap_1' : 'video',
+    #'ang_1' : 'video',
+    #'test_1' : 'video',
+#    'flyme2themoon_ori': 'video',
+#    'flyme2themoon_2': 'emo-cls-tex',
+#    'flyme2themoon_3': 'emo-ist-tex',
+#    'AUD_faceformer_2': 'audio',
+#    'AUD_faceformer_3': 'audio',
+#    'AUD_earlier': 'emo-ist',
+#    'AUD_voca_1':'audio',
+#    'AUD_voca_2':'emo-cls',
+#    'AUD_F6_01_cut':'audio',
+     'AUD_demo_2_happy' : 'aud-cls=HAP',
+#    'AUD_demo_2_angry' : 'aud-cls=ANG',
+#    'AUD_demo_2_sad' : 'aud-cls=SAD'
   }

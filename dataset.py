@@ -51,8 +51,8 @@ def adjust_frame_rate(result_dict, in_fps):
         (itp_len, code.size(1)) if code.dim() == 2 else (itp_len, code.size(1), code.size(2)))[0,0,...] \
         for key, code in result_dict['code_dict'].items()}
 
-    if 'emo_tensor' in result_dict.keys():
-        result_dict['emo_tensor'] = F.interpolate(result_dict['emo_tensor'][None,None,...], (itp_len, result_dict['emo_tensor'].size(1)))[0,0,...]
+    if 'emo_logits' in result_dict.keys():
+        result_dict['emo_logits'] = F.interpolate(result_dict['emo_logits'][None,None,...], (itp_len, result_dict['emo_logits'].size(1)))[0,0,...]
     if 'imgs' in result_dict.keys():
         # b,3,h,w->h,w,b,3
         assert(result_dict['imgs'].size(1) == 3) # store format
@@ -87,7 +87,7 @@ def FACollate_fn(data_list:list, clip_max=True):
         seqs_len: tensor, size: Batch
         code_dict: list(dict(tensor))
     """
-    stack_key = {'wav', 'params', 'seqs_len'} #{'name', 'imgs', 'domain', 'code_dict', 'emo_tensor'}
+    stack_key = {'wav', 'params', 'seqs_len'} #{'name', 'imgs', 'domain', 'code_dict', 'emo_logits'}
     result_dict = {key:[] for key in data_list[0].keys() }
     
     if clip_max:
@@ -147,9 +147,9 @@ def FACollate_fn(data_list:list, clip_max=True):
         s_seq_max = max(result_dict['seqs_len']).item()
         result_dict['params'] = [zero_padding(seq, seqs_max, dim=-2)[:min(s_seq_max, max_seq_length),...] for seq in result_dict['params']]
 
-    if 'emo_tensor' in data_list[0].keys():
-        result_dict['emo_tensor'] = [et[:result_dict['seqs_len'][idx]] for idx, et in enumerate(result_dict['emo_tensor'])]
-        result_dict['emo_tensor'] = torch.cat(result_dict['emo_tensor'], dim=0)
+    if 'emo_logits' in data_list[0].keys():
+        result_dict['emo_logits'] = [et[:result_dict['seqs_len'][idx]] for idx, et in enumerate(result_dict['emo_logits'])]
+        result_dict['emo_logits'] = torch.cat(result_dict['emo_logits'], dim=0)
 
     for key in result_dict.keys():
         if key in stack_key:
@@ -265,7 +265,7 @@ class CREMADDataset(Dataset):
                     print('error unable to crop ', result_dict['name'])
                     return None
                 imgs = convert_img(crop_imgs, 'fan_out', 'store')
-                result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
+                result_dict['emo_logits'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
                 # generate codedict(for output norm)
                 result_dict['code_dict'] = \
                     self.emoca.encode(convert_img(imgs, 'store','emoca').to(self.emoca.device), return_img=False) # dict(seq_len, code)
@@ -375,14 +375,14 @@ class BIWIDataset(Dataset):
                     print('error unable to crop ', result_dict['name'])
                     return None
                 imgs = convert_img(crop_imgs, 'fan_out', 'store')
-                # result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan')).cpu()
+                # result_dict['emo_logits'] = self.dan.inference(convert_img(imgs, 'store', 'dan')).cpu()
                 # load params from json
                 with open(path.join(result_dict['params_path'], 'params.json'), 'r') as fp:
                     params = torch.as_tensor(json.load(fp)) # seq, 156
                     result_dict['params'] = params[:,100:156]
                     result_dict['code_dict'] = {'shapecode': params[:,:100], 'expcode':params[:,100:150], 'posecode':params[:,150:]}
                 
-        result_dict['emo_tensor'] = torch.zeros((result_dict['params'].size(0), 7)) # biwi emo-tensor is not reliable
+        result_dict['emo_logits'] = torch.zeros((result_dict['params'].size(0), 7)) # biwi emo-tensor is not reliable
         return result_dict
     
     def __len__(self):
@@ -504,7 +504,7 @@ class VOCASET(Dataset):
             result_dict['params'] = params[:, 100:]
             result_dict['code_dict'] = {'shapecode': params[:,:100], 'expcode':params[:,100:150], 'posecode':params[:,150:]}
             result_dict = adjust_frame_rate(result_dict, self.fps)
-            result_dict['emo_tensor'] = torch.zeros((result_dict['params'].size(0), 7))
+            result_dict['emo_logits'] = torch.zeros((result_dict['params'].size(0), 7))
 
         return result_dict
         
@@ -669,7 +669,7 @@ class LRS2Dataset(Dataset):
                     print('error unable to crop ', result_dict['name'])
                     return None
                 imgs = convert_img(crop_imgs, 'fan_out', 'store')
-                result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
+                result_dict['emo_logits'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
                 #generate codedict(for output norm)
                 result_dict['code_dict'] = \
                     self.emoca.encode(convert_img(imgs, 'store','emoca').to(self.emoca.device), return_img=False) # dict(seq_len, code)
@@ -730,11 +730,11 @@ class EnsembleDataset(Dataset):
         domain = self.datasets[dataset_idx].dataset_name
         if self.return_domain:
             result_dict.update({'domain': domain})
-        # generate emo_tensor_conf
+        # generate emo_logits_conf
         if domain in ['lrs2', 'cremad']:
-            result_dict['emo_tensor_conf'] = 'use'
+            result_dict['emo_logits_conf'] = 'use'
         else:
-            result_dict['emo_tensor_conf'] = 'no_use'
+            result_dict['emo_logits_conf'] = 'no_use'
         return result_dict
 
     def __len__(self):
@@ -830,7 +830,7 @@ class TESTDataset(Dataset):
                 else:
                     imgs = convert_img(crop_imgs, 'fan_out', 'store')
                     result_dict['imgs'] = imgs
-                    result_dict['emo_tensor'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
+                    result_dict['emo_logits'] = self.dan.inference(convert_img(imgs, 'store', 'dan'))
                     #generate codedict(for output norm)
                     result_dict['code_dict'] = \
                         self.emoca.encode(convert_img(imgs, 'store','emoca').to(self.emoca.device), return_img=False) # dict(seq_len, code)
