@@ -15,7 +15,18 @@ Update:
 
 ## Deployment
 
+### Train
+
 Not avaliable now.
+
+### inference
+
+- download model weights and 3rd models (link is not available here)
+- make sure that all files in `config/global.yml` are under correct paths
+- input files for inference should be placed at `inference/input`
+- change sample configs in `config/inference.yml/infer_dataset`, add custom input files and inference configs for each input.
+- back to project folder, run `python -u inference.py --mode inference`
+- get inference output at `inference/output`
 
 
 ## Dataset
