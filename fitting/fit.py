@@ -9,10 +9,11 @@ class Mesh:
         self.template = template_str # flame or biwi
         self.v = vertex
 
-    # return: N*3 asarray
-    def read_obj(obj_str):
+    @classmethod
+    def read_obj(cls, obj_str):
+        # return: N*3 asarray
         vert_list = []
-        with open(obj_str, mode='r') as f:
+        with open(obj_str, mode='r', encoding='utf-8') as f:
             break_flag = False
             while not break_flag:
                 vert_str = ''
@@ -25,15 +26,16 @@ class Mesh:
                     vert_list.append([float(v) for v in vert_str.split(' ')[1:]])
         return np.asarray(vert_list) # N*3
     
-    def write_obj(template:str, vertex:np.ndarray, out_path:str):
+    @classmethod
+    def write_obj(cls, template:str, vertex:np.ndarray, out_path:str):
         append_f = None
         temp_path = os.path.split(__file__)[0]
         if template.lower() == 'flame':
             # load flame template
-            with open(os.path.join(temp_path, 'template/FLAME_template.obj'), mode='r') as f:
+            with open(os.path.join(temp_path, 'template/FLAME_template.obj'), mode='r', encoding='utf-8') as f:
                 append_f = f.read(None)
         elif template.lower() == 'biwi':
-            with open(os.path.join(temp_path, 'template/BIWI_template.obj'), mode='r') as f:
+            with open(os.path.join(temp_path, 'template/BIWI_template.obj'), mode='r', encoding='utf-8') as f:
                 append_f = f.read(None)
         else:
             assert(False)
@@ -46,8 +48,9 @@ class Mesh:
             f.writelines(f_vert)
             f.write(append_f)
         print('Write obj:', out_path, ' template=', template)
-        
-    def create(obj_str, template):
+    
+    @classmethod
+    def create(str, obj_str, template):
         return Mesh(Mesh.read_obj(obj_str), template_str=template)
 
 
@@ -88,7 +91,7 @@ def get_landmark(mesh:Mesh, mouth=False):
     return np.asarray(landmark)
 
 def get_front_face_idx():
-    with open('quick_fit/front-face-idx.json', 'r') as f:
+    with open('quick_fit/front-face-idx.json', 'r', encoding='utf-8') as f:
         idx_list = json.load(f)['front_face']
     return idx_list
 

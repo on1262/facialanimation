@@ -26,6 +26,7 @@ def seed_torch(seed):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='train', type=str, help='train or inference')
+    parser.add_argument('--scripts', default='', type=str, help='run scripts')
     args = parser.parse_args()
 
     init_environ()
@@ -38,6 +39,10 @@ if __name__ == '__main__':
     elif args.mode == 'inference':
         inference = Inference()
         inference.inference()
+    elif args.mode == 'scripts':
+        if args.scripts == 'dataset_cache':
+            from scripts.dataset_cache import dataset_cache
+            dataset_cache()
 
     
 

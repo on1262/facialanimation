@@ -17,6 +17,7 @@ from utils.balance_data import cal_hist
 from utils.config_loader import GBL_CONF, PATH
 from utils.converter import convert_img, save_img
 from fitting import approx_transform_mouth, get_mouth_landmark, Mesh
+from inference import cal_mesh_error
 from utils.flexible_loader import FlexibleLoader
 from utils.generic import vertices2nparray, load_model_dict
 from utils.grad_check import GradCheck
@@ -29,11 +30,11 @@ class Trainer():
     def __init__(self):
         trainer_conf = GBL_CONF['trainer']
         self.model_path = os.path.join(PATH['model'], trainer_conf['model_name'])
-        load_path = self.model_path if trainer_conf['load_from_checkpoint'] else None,
+        load_path = self.model_path if trainer_conf['load_from_checkpoint'] else None
 
         self.debug = trainer_conf['debug']
         self.device=torch.device(GBL_CONF['global']['device'])
-        self.preload_device = torch.device(GBL_CONF['global']['preload_device'])
+        self.preload_device = torch.device(GBL_CONF['global']['device']) # TODO add preload
         self.model_name = trainer_conf['model_name']
         self.fps = trainer_conf['fps']
         self.total_epoch = GBL_CONF['model'][self.model_name]['epochs']
@@ -43,7 +44,7 @@ class Trainer():
         self.dan = DANModel(device=self.device)
         
         print('model name: ', self.model_name)
-        print('debug mode: ', self.debug == 0)
+        print('debug mode: ', self.debug)
         print('Trainer: loading model')
         self.model = None
         if load_path is not None: # load existed model
@@ -87,16 +88,15 @@ class Trainer():
         print('Trainer: init dataset')
 
         self.train_dataset = EnsembleDataset(
-            self.dataset_path, self.label_dict, return_domain=True, dataset_type='train',device=self.device, emoca=self.emoca, debug=self.debug)
-        self.valid_dataset = EnsembleDataset(
-            self.dataset_path, self.label_dict, return_domain=False, dataset_type='valid',device=self.device, emoca=self.emoca, debug=self.debug)
-        self.test_voca_dataset = BaselineVOCADataset(PATH['dataset']['vocoset'], device=self.device)
+            return_domain=True, dataset_type='train',device=self.device, emoca=self.emoca, debug=self.debug)
+        self.valid_dataset = BaselineVOCADataset('valid', device=self.device)
+        self.test_dataset = BaselineVOCADataset('test', device=self.device)
 
         trainer_sampler = RandomSampler(self.train_dataset)
 
         self.train_batchsize = trainer_conf['flexible_loader']['train_batchsize']
         self.train_loader = FlexibleLoader(self.train_dataset, 
-                                           batchsize=trainer_conf['flexible_loader']['train_minibatch'], sampler=trainer_sampler, collate_fn=FACollate_fn)
+                                           batch_size=trainer_conf['flexible_loader']['train_minibatch'], sampler=trainer_sampler, collate_fn=FACollate_fn)
         val_sampler = SequentialSampler(self.valid_dataset)
         self.valid_loader = FlexibleLoader(self.valid_dataset, 
                                            batch_size=trainer_conf['flexible_loader']['valid_batchsize'], sampler=val_sampler, collate_fn=FACollate_fn)
@@ -124,7 +124,6 @@ class Trainer():
         # self.plot_folder = '/figures'
         # self.gradcheck = GradCheck(self.model, (self.model_name + '_' + str(self.batch_size)) if self.debug == 0 else self.# model_name + '-debug', plot=True, plot_folder=self.plot_folder)
         
-        os.makedirs(self.save_path, exist_ok=True)
 
     def calculate_norm(self, dataset):
         output = {}
@@ -159,9 +158,9 @@ class Trainer():
             dan_norm = []
             for idx in range(len(dataset)):
                 data = dataset[idx]
-                if 'emo_tensor' not in data.keys():
-                    data['emo_tensor'] = self.dan.inference(convert_img(data['imgs'], 'store', 'dan')).detach() # batch, max_seq_len, 7
-                dan_norm.append(data['emo_tensor'].to('cpu'))
+                if 'emo_logits' not in data.keys():
+                    data['emo_logits'] = self.dan.inference(convert_img(data['imgs'], 'store', 'dan')).detach() # batch, max_seq_len, 7
+                dan_norm.append(data['emo_logits'].to('cpu'))
             dan_norm = torch.cat(dan_norm, dim=0)
             dan_mean = torch.mean(dan_norm, dim=0)
             dan_std = torch.std(dan_norm, dim=0)
@@ -216,9 +215,9 @@ class Trainer():
         out_dict['m_param'] = m_param_loss.detach().cpu().item()
         out_dict['m_vertex'] = m_vertex_loss.detach().cpu().item()
         avg_loss = vert_loss + m_jaw_loss + m_jaw_vol_loss + m_vertex_loss + m_param_loss
-        if 'emo_tensor' in gt.keys():
-            # pred_loss = self.cri_pred.cal_loss(outs['pred_emo_tensor'], gt['emo_tensor'])
-            pred_loss = self.cri_pred.cal_loss(outs['pred_emo_tensor'], gt['emo_tensor'], gt['seqs_len'])
+        if 'emo_logits' in gt.keys():
+            # pred_loss = self.cri_pred.cal_loss(outs['pred_emo_logits'], gt['emo_logits'])
+            pred_loss = self.cri_pred.cal_loss(outs['pred_emo_logits'], gt['emo_logits'], gt['seqs_len'])
             out_dict['pred'] = pred_loss.detach().cpu().item()
             avg_loss += pred_loss
         out_dict['out_loss'] = avg_loss.detach().cpu().item()
@@ -242,8 +241,8 @@ class Trainer():
         # preprocess data
         if 'imgs' in data.keys():
             data['imgs'] = torch.cat(data['imgs'], dim=0)
-            if 'emo_tensor' not in data.keys():
-                data['emo_tensor'] = self.dan.inference(convert_img(data['imgs'], 'store', 'dan')).detach().to(self.device) # batch, max_seq_len, 7
+            if 'emo_logits' not in data.keys():
+                data['emo_logits'] = self.dan.inference(convert_img(data['imgs'], 'store', 'dan')).detach().to(self.device) # batch, max_seq_len, 7
         data['verts'] = self.emoca.decode(data['code_dict'], {'verts'}, target_device=self.device)['verts']
         
         if self.debug == 2: # single step
@@ -253,15 +252,15 @@ class Trainer():
 
         return
 
-    '''test phase (TODO add validation phase)'''
-    def _test(self):
+    '''test phase'''
+    def _test(self, dataset):
         test_avg_loss, test_max_loss = 0, 0
         lmk_idx = get_mouth_landmark('flame')
         templates = {}
 
         self.model = self.model.eval()
         with torch.no_grad():
-            for idx, test_data in enumerate(self.test_voca_dataset):
+            for idx, test_data in enumerate(dataset):
                 d = {
                     'wav':test_data['wav'].to(self.device), 
                     'code_dict':None , 
@@ -270,7 +269,7 @@ class Trainer():
                     'flame_template':test_data['flame_template'], 
                     'shapecode':test_data['shapecode'].to(self.device)
                 }
-                d['emo_tensor_conf'] = ['no_use']
+                d['emo_logits_conf'] = ['no_use']
                 gt = test_data['verts']
                 seq_len = gt.size(0)
                 params =  self.model.test_forward(d)['params'].squeeze(0) # 1, vertexm 3
@@ -292,23 +291,19 @@ class Trainer():
 
                 seq_max_loss = 0
                 seq_avg_loss = 0
-                # TODO combine test code with baseline test
                 for idx2 in range(seq_len):
                     m_out = Mesh(output[idx2,:,:], 'flame')
                     m_gt = Mesh(gt[idx2,:,:], 'flame')
-                    m_out = approx_transform_mouth(m_out, m_gt)
-                    delta = m_gt.v[lmk_idx,:]-m_out.v[lmk_idx,:]
-                    delta = np.sqrt(np.power(delta[:,0],2) + np.power(delta[:,1],2) + np.power(delta[:,2],2))
+                    delta = cal_mesh_error(m_out, m_gt, lmk_idx)
                     seq_avg_loss += np.mean(delta)
                     seq_max_loss += np.max(delta)
 
                 test_max_loss += (seq_max_loss / seq_len)
                 test_avg_loss += (seq_avg_loss / seq_len)
-                if idx % ceil(len(self.test_voca_dataset)/10) == 0:
+                if idx % ceil(len(dataset)/10) == 0:
                     print('idx=',idx, 'mean loss=', test_avg_loss/(idx+1), 'max loss=', test_max_loss/(idx+1), 'name=', test_data['name'])
-        test_max_loss = test_max_loss / len(self.test_voca_dataset)
-        test_avg_loss = test_avg_loss / len(self.test_voca_dataset)
-        print(f'max loss={test_max_loss}, avg_loss={test_avg_loss}')
+        test_max_loss = test_max_loss / len(dataset)
+        test_avg_loss = test_avg_loss / len(dataset)
         return test_avg_loss, test_max_loss
 
     '''training phase'''
@@ -320,7 +315,7 @@ class Trainer():
         # init dataloader
         idx_it = 0
         it = iter(self.train_loader)
-        transmit_cuda = {'emo_label', 'wav', 'params', 'emo_tensor'} # do not convert imgs into gpu
+        transmit_cuda = {'emo_label', 'wav', 'params', 'emo_logits'} # do not convert imgs into gpu
         
         self.queue.put(it)
         t_preload = Thread(target=self.preload, args=(self.device, transmit_cuda, self.queue))
@@ -367,19 +362,34 @@ class Trainer():
 
     def run_epoch(self):
         print('=======epoch: ', self.now_epoch, '=======')
-        if self.lr_config['sche_type'] == 'PlateauDecreaseScheduler':
+        if self.lr_config['scheduler'] == 'PlateauDecreaseScheduler':
             print('lr=', self.schedulers[0].get_lr(), 'warmup step=', self.schedulers[0].get_wmp_step())
         else:
             print('lr=', self.model.get_opt_list()[0].param_groups[0]['lr'])
         
-        test_avg_loss, test_max_loss = self._test()
+        val_avg_loss, val_max_loss = self._test(self.valid_dataset)
+        print(f'Validation max loss={val_max_loss}, avg_loss={val_avg_loss}')
         self._train()
         
         self.now_epoch += 1
-        return test_max_loss
+        return val_max_loss
     
     def run_epochs(self):
-        for _ in range(self.now_epoch, self.total_epoch, 1):
-            self.run_epoch()
+        min_val_loss, val_epoch = np.inf, -1
+        min_test_loss, test_epoch = np.inf, -1
+        for epoch in range(self.now_epoch, self.total_epoch, 1):
+            val_loss = self.run_epoch()
+            if val_loss < min_val_loss:
+                val_epoch = epoch
+                min_val_loss = val_loss
+
+                test_avg_loss, test_max_loss = self._test(self.test_dataset)
+                print('Test: max loss=', test_max_loss, 'avg loss=', test_avg_loss)
+                if test_max_loss < min_test_loss:
+                    min_test_loss = np.min(test_max_loss, min_test_loss)
+                    test_epoch = epoch
+        print('Min test loss: ', min_test_loss, 'epoch=', test_epoch)
+        print('Trainer: Done!')
+
         
         

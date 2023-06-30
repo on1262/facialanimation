@@ -2,7 +2,7 @@
 cremad:
   fps: 30
   division: [0.8, 0.1, 0.1]
-  emo_label: {'ANG':'ANG','DIS':'DIS','FEA':'FEA','HAP':'HAP','NEU':'NEU','SAD':'SAD'}
+  emo_label: ['NEU', 'HAP', 'SAD', 'SUR', 'FEA', 'DIS', 'ANG']
   bad_sample: {
     '1076_MTI_NEU_XX', '1076_MTI_SAD_XX', '1064_TIE_SAD_XX', '1064_IEO_DIS_MD', 
     '1004_DFA_FEA_XX','1047_IEO_SAD_LO','1047_IEO_FEA_LO'

@@ -7,8 +7,8 @@ Source code for: [Expressive Speech-driven Facial Animation with controllable em
 Update:
 
 - initial update(Done, 6.18)
-- rewrite framework
-- test inference module
+- rewrite framework (Done, 6.30)
+- test inference module (Done, 6.30)
 - test training module
 - update 3rd packages
 - add deployment scripts

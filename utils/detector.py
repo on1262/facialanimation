@@ -6,12 +6,12 @@ import torchvision.transforms.functional as F
 from skimage.transform import rescale, estimate_transform, warp
 import numpy as np
 from threading import Thread
+import face_alignment # 1.3.5
 
 
 class FANDetector():
     '''FAN is a multi-scale face detector, which is better than MTCNN'''
     def __init__(self, device, crop_size=224, scaling_factor=1.0, scale=1.25, threshold=0.5):
-        import face_alignment
         self.face_detector = 'sfd'
         self.face_detector_kwargs = {
             "filter_threshold": threshold

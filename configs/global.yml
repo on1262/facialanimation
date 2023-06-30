@@ -5,7 +5,7 @@ paths:
     norm_dict: ./datasets/cache/norm_dict.pt
     cache: ./datasets/cache
     biwi: ./datasets/BIWI
-    creamd: ./datasets/CREMA-D
+    cremad: ./datasets/CREMA-D
     lrs2: ./datasets/LRS2
     ravdess: ./datasets/RAVDESS
     vocaset: ./datasets/VOCASET

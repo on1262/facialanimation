@@ -1,5 +1,5 @@
 ---
-model_name: tf_emo_4
+model_name: fusion_origin
 
 load_from_checkpoint: false
 debug: 0

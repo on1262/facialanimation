@@ -30,6 +30,12 @@ def get_gt_from_dataset(dataset_path, load_name):
             return params_list[idx].unsqueeze(0), wavs[name]
     print('not found ' , load_name)
 
+def cal_mesh_error(m_out:Mesh, m_gt:Mesh, lmk_idx):
+    m_out = approx_transform_mouth(m_out, m_gt)
+    delta = m_gt.v[lmk_idx,:]-m_out.v[lmk_idx,:]
+    delta = np.sqrt(np.power(delta[:,0],2) + np.power(delta[:,1],2) + np.power(delta[:,2],2))
+    return delta
+
 class Inference():
     def __init__(self):
         self.infer_conf = GBL_CONF['inference']
@@ -228,7 +234,7 @@ class Inference():
             self.model = self.load_model(model_path, self.emoca, self.device)
 
         max_loss, avg_loss = 0, 0
-        lmk_idx_out = lmk_idx_gt = get_mouth_landmark('flame')
+        lmk_idx = get_mouth_landmark('flame')
         print('load', len(test_dataset),'in test dataset')
         output_path = PATH['inference']['baseline_test']
 
@@ -276,12 +282,7 @@ class Inference():
                     m_out = Mesh(output[idx2,:,:], 'flame')
                     m_gt = Mesh(gt[idx2,:,:], 'flame')
                     #m_out,_ = approx_transform(m_out, m_gt, frac_scale=True)
-                    m_out = approx_transform_mouth(m_out, m_gt)
-                    
-                    # the scale of output is not corresponds to real scale
-                    #m_out = mesh_seq[idx2]
-                    delta = m_gt.v[lmk_idx_gt,:]-m_out.v[lmk_idx_out,:]
-                    delta = np.sqrt(np.power(delta[:,0],2) + np.power(delta[:,1],2) + np.power(delta[:,2],2))
+                    delta = cal_mesh_error(m_out, m_gt, lmk_idx)
                     seq_avg_loss += np.mean(delta)
                     seq_max_loss += np.max(delta)
                     if btest_conf['save_obj']:
