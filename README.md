@@ -16,7 +16,7 @@ Update:
 
 # Deployment
 
-## Preparing Dataset
+## Prepare dataset
 
 If you want to train our model, you need to download CREMA-D, LRS2 and VOCASET dataset. Put dataset folders under `datasets` as following structure:
 
@@ -39,7 +39,7 @@ datasets
 
 To get FLAME code dict for each sample, I use EMOCA to fit 2D datasets(CREMA-D and LRS2) and another fitting algorithm to fit 3D datasets(VOCASET). Uncomment the line under `make_dataset_cache` to fit 2D datasets(fitting algorithm for VOCASET is not available now). Results can be viewed in `datasets/cache` folder.
 
-## Preparing 3rd packages
+## Prepare 3rd packages
 
 I use several 3rd packages for training and inference. All 3rd packages are under `third_party` folder. I provide a refactored version for `EMOCA`, which is called `EMOCABasic`. `EMOCABasic` rewrites the model interface, deleting unnecessary code for this model. But the checkpoint files and model weights are unchanged.
 
@@ -57,7 +57,7 @@ third_party
     wav2vec2
 ```
 
-## Train
+## Training
 
 - prepare datasets and 3rd packages following above instructions.
 - run fitting algorithm for VOCASET
@@ -68,7 +68,7 @@ third_party
 
 
 
-## inference
+## Inference
 
 - download model weights and 3rd models (link is not available here)
 - make sure that all files in `config/global.yml` are under correct paths
@@ -119,7 +119,7 @@ Datasets:
 - `flame_template`: template path for each sample in Baseline VOCASET
 - `verts`: origin vertex data for each sample in Baseline VOCASET
 
-## Inference dataset conf
+## Inference configurations for each sample
 
 `inference.yml/sample_configs` provides different configs to control model behavior. Some tags can be used independently, such as `video`, `audio`, `emo-ist`, `emo-cls`. Other tags should be used under specific situations, such as `-tex`, `=HAP`
 - `video`: result order: [original video, EMOCA decoding output, `emo_logits_conf=use`, speech driven(predict emotion from audio), no emotion]

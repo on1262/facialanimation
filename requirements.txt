@@ -1,0 +1,98 @@
+appdirs==1.4.4
+astroid @ file:///tmp/abs_e5wkt48jiz/croots/recipe/astroid_1659023120113/work
+audioread==3.0.0
+blessed==1.20.0
+certifi @ file:///croot/certifi_1671487769961/work/certifi
+cffi==1.15.1
+charset-normalizer==3.0.1
+chumpy==0.70
+click==8.1.3
+contourpy==1.0.7
+cycler==0.11.0
+decorator==5.1.1
+dill @ file:///croot/dill_1667919592856/work
+docker-pycreds==0.4.0
+docopt==0.6.2
+face-alignment==1.3.5
+facenet-pytorch==2.5.2
+filelock==3.9.0
+flit_core @ file:///opt/conda/conda-bld/flit-core_1644941570762/work/source/flit_core
+fonttools==4.38.0
+fvcore==0.1.5.post20221221
+gitdb==4.0.10
+GitPython==3.1.31
+gpustat==1.0.0
+huggingface-hub==0.12.1
+humanfriendly==10.0
+idna==3.4
+imageio==2.25.1
+iopath==0.1.10
+isort @ file:///tmp/build/80754af9/isort_1628603791788/work
+joblib==1.2.0
+kiwisolver==1.4.4
+lazy-object-proxy @ file:///home/builder/ci_310/lazy-object-proxy_1640791307593/work
+lazy_loader==0.1
+librosa==0.10.0
+llvmlite==0.39.1
+matplotlib==3.7.0
+mccabe @ file:///opt/conda/conda-bld/mccabe_1644221741721/work
+msgpack==1.0.4
+networkx==3.0
+numba==0.56.4
+numpy==1.23.5
+nvidia-cublas-cu11==11.10.3.66
+nvidia-cuda-nvrtc-cu11==11.7.99
+nvidia-cuda-runtime-cu11==11.7.99
+nvidia-cudnn-cu11==8.5.0.96
+nvidia-ml-py==11.495.46
+opencv-python==4.7.0.68
+packaging==23.0
+pathtools==0.1.2
+Pillow==9.4.0
+pipreqs==0.4.13
+platformdirs @ file:///opt/conda/conda-bld/platformdirs_1662711380096/work
+plotly==5.13.0
+plyfile==0.7.4
+pooch==1.6.0
+portalocker==2.7.0
+protobuf==4.22.0
+psutil==5.9.4
+pycparser==2.21
+pylint @ file:///tmp/abs_6fxmc66kyk/croots/recipe/pylint_1659110350161/work
+pyparsing==3.0.9
+python-dateutil==2.8.2
+pytorch3d==0.7.2
+PyWavelets==1.4.1
+PyYAML==6.0
+regex==2022.10.31
+requests==2.28.2
+scikit-image==0.19.3
+scikit-learn==1.2.1
+scipy==1.10.1
+sentry-sdk==1.15.0
+setproctitle==1.3.2
+six==1.16.0
+smmap==5.0.0
+soundfile==0.12.1
+soxr==0.3.3
+tabulate==0.9.0
+tenacity==8.2.1
+termcolor==2.2.0
+threadpoolctl==3.1.0
+tifffile==2023.2.3
+tokenizers==0.12.1
+tomli @ file:///opt/conda/conda-bld/tomli_1657175507142/work
+tomlkit @ file:///tmp/abs_56_0lnnq5x/croots/recipe/tomlkit_1658946880479/work
+torch==1.13.1
+torch-complex==0.4.3
+torchvision==0.14.1
+tqdm==4.64.1
+transformers==4.22.2
+typeguard==2.13.3
+typing_extensions==4.5.0
+urllib3==1.26.14
+wandb==0.13.10
+wcwidth==0.2.6
+wrapt @ file:///home/builder/ci_310/wrapt_1640795983382/work
+yacs==0.1.8
+yarg==0.1.9
