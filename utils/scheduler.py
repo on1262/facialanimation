@@ -2,7 +2,17 @@ import torch.nn as nn
 
 
 class PlateauDecreaseScheduler():
+    '''
+    no warm up mode(set warm up steps=0):
+        initial learning rate: init_lr*lr_coeff
+        learning rate linearly get closed to min_lr when steps increasing.
+    
+    warm up mode:
+        init_lr is not used
+        learning rate goes to warmup_lr when step=warmmp_steps, then mixed with min_lr.
+          
 
+    '''
     def __init__(self, 
     optimizers_list:list, 
     lr_coeff_list=None, 

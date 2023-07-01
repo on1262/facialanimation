@@ -350,7 +350,7 @@ class Trainer():
                 for opt in self.model.get_opt_list():
                     opt.step()
                     opt.zero_grad(set_to_none=True)
-                    self.schedulers[0].step(self.epoch)
+                    self.schedulers[0].step(self.now_epoch)
             del loss
             
             t_preload.join() # preload
@@ -367,9 +367,11 @@ class Trainer():
         else:
             print('lr=', self.model.get_opt_list()[0].param_groups[0]['lr'])
         
+        self._train() # TODO validation before train
+
         val_avg_loss, val_max_loss = self._test(self.valid_dataset)
         print(f'Validation max loss={val_max_loss}, avg_loss={val_avg_loss}')
-        self._train()
+        
         
         self.now_epoch += 1
         return val_max_loss

@@ -36,8 +36,8 @@ paths:
       wav2vec2: ./third_party/FaceFormer/facebook/wav2vec2-base-960h
 
 seed: 1000
-device: "cuda:0"
-preload_device: "cuda:1"
+device: "cuda:2"
+preload_device: "cuda:3"
 
 
 

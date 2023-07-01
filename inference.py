@@ -134,7 +134,7 @@ class Inference():
                 elif 'emo-cls' in conf:
                     state_list = self.emo_cls
                 elif 'emo-ist' in conf:
-                    state_list = ['HAP-1.0', 'HAP-0.5', 'HAP-0.25', 'FEA-0.25', 'FEA-0.5','FEA-1.0']
+                    state_list = self.infer_conf['emo_ist']
                 
                 for state in state_list:
                     if state == 'faceformer':

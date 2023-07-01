@@ -48,6 +48,7 @@ emoca:
 infer_dataset: # generate a temporal dataset based on inference input
   emo_cls: ['NEU','ANG','HAP','SAD','DIS','FEA']
   emo_set: {'ANG','DIS','FEA','HAP','NEU','SAD'}
+  emo_ist: ['HAP-1.0', 'HAP-0.5', 'HAP-0.25', 'FEA-0.25', 'FEA-0.5','FEA-1.0']
   video_ends: {'.mp4', '.flv'}
   audio_ends: {'.wav'}
   audio_sr: 16000

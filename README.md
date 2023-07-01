@@ -9,41 +9,126 @@ Update:
 - initial update(Done, 6.18)
 - rewrite framework (Done, 6.30)
 - test inference module (Done, 6.30)
-- test training module
-- update 3rd packages
+- test training module (Done, 7.1)
+- check fitting algorithms
+- rewrite schduler
 - add deployment scripts
 
-## Deployment
+# Deployment
 
-### Train
+## Preparing Dataset
 
-Not avaliable now.
+If you want to train our model, you need to download CREMA-D, LRS2 and VOCASET dataset. Put dataset folders under `datasets` as following structure:
 
-### inference
+```
+datasets
+    CREMA-D
+        AudioWAV
+        VideoFLash
+        ...
+    LRS2
+        mvlrs_v1
+        train.txt
+        val.txt
+        ...
+    VOCASET
+        audio
+        FaceTalk_XXXX_XXXX_TA
+        ...
+```
+
+To get FLAME code dict for each sample, I use EMOCA to fit 2D datasets(CREMA-D and LRS2) and another fitting algorithm to fit 3D datasets(VOCASET). Uncomment the line under `make_dataset_cache` to fit 2D datasets(fitting algorithm for VOCASET is not available now). Results can be viewed in `datasets/cache` folder.
+
+## Preparing 3rd packages
+
+I use several 3rd packages for training and inference. All 3rd packages are under `third_party` folder. I provide a refactored version for `EMOCA`, which is called `EMOCABasic`. `EMOCABasic` rewrites the model interface, deleting unnecessary code for this model. But the checkpoint files and model weights are unchanged.
+
+For training, `wav2vec2`, `DAN` and `EMOCABasic` are necessary. For inference(running model in inference mode), `wav2vec2` and `EMOCABasic` are needed. For baseline test, additional packages `Faceformer` and `VOCA` are needed.
+
+File structure under `third_party` folder:
+
+```
+third_party
+    DAN
+    EMOCABasic
+    Faceformer
+    VOCA
+    DAN
+    wav2vec2
+```
+
+## Train
+
+- prepare datasets and 3rd packages following above instructions.
+- run fitting algorithm for VOCASET
+- run dataset caching scripts(uncomment the line under `make_dataset_cache` in `main.sh`)
+- adjust `device` in `config/global.yml`
+- adjust `train_minibatch` in `config/trainer.yml`, change `model_name` if you want to train another model.
+- back to project folder, run `python -u main.py --mode train`
+
+
+
+## inference
 
 - download model weights and 3rd models (link is not available here)
 - make sure that all files in `config/global.yml` are under correct paths
 - input files for inference should be placed at `inference/input`
 - change sample configs in `config/inference.yml/infer_dataset`, add custom input files and inference configs for each input.
+- change `inference_mode/model_name` in `config/inference.yml` if you want to test another model.
 - back to project folder, run `python -u inference.py --mode inference`
 - get inference output at `inference/output`
 
+# Implementation details
 
-## Dataset
+## Possibly occuring keys in sample dict
 
-**CREMA-D**
+Collect Function:
+- `wav`: audio data. tensor, shape: (batch, wav_len)
+- `seqs_len`: video frame length for sequence, LongTensor, shape: (batch,)
+- `params`: concat(expression code, pose code), tensor, shape: (batch, seq_len)
+- `emo_logits`: DAN output, tensor, shape: (batch, 7)
+- `code_dict`: dict contains FLAME code
+    + `shapecode`: shape code. tensor, (batch, 100)
+    + `expcode`: expression code. tensor, (batch, 50)
+    + `posecode`: pose(head rotation, jaw angle), tensor, (batch, 6)
+    + `lightcode`: code for light rendering, use `default_light_code`
+    + `cam`: camera position, (batch, 3)
+    + `texcode`: texture code for rendering, generated from EMOCA encoder.
 
-dataset link: [https://www.kaggle.com/datasets/ejlok1/cremad](https://www.kaggle.com/datasets/ejlok1/cremad)
+EMOCABasic decoding results:
+- `verts`: decoded mesh sequence by EMOCA based on `code_dict`, (batch, 5663)
+- `output_images_coarse` and `predicted_images`: rendered images (grey or with texture)
+- `geometry_coarse` and `emoca_imgs`: rendered grey face images without light
+- `trans_verts`: temporal data for decoding process
+- `masks`: `False` for background area in rendered images
 
-remove bad sample: 1007_ITH_NEU_XX, 1064_IEO_DIS_MD
+Model input configurations:
+- `name`: sample names, list
+- `smooth`: enable output smoothing, bool
+- `emo_label`: emotion control vector. Used to add emotion intensity in sequence level.
+- `intensity`: custom intensity for emotion in `emo_label`
+- `emo_logits_conf`: str, control model behavior:
+    + `use`: predict emotion from autio without any change
+    + `no_use`: generate model output without emotion
+    + `one_hot`: adjust emotion based on `emo_label` and `intensity`
 
-**LRS2**
+Datasets:
+- `imgs`: original cropped image from 2D datasets
+- `path`: fitting output path for VOCASET sample
+- `wav_path`: wav path for VOCASET sample
+- `flame_template`: template path for each sample in Baseline VOCASET
+- `verts`: origin vertex data for each sample in Baseline VOCASET
 
-**RAVDESS**
+## Inference dataset conf
 
-**VOCASET**
+`inference.yml/sample_configs` provides different configs to control model behavior. Some tags can be used independently, such as `video`, `audio`, `emo-ist`, `emo-cls`. Other tags should be used under specific situations, such as `-tex`, `=HAP`
+- `video`: result order: [original video, EMOCA decoding output, `emo_logits_conf=use`, speech driven(predict emotion from audio), no emotion]
+- `audio`: result order: [speech driven, no emotion]
+- `emo-cls`: generate video with specific emotions: ['NEU','ANG','HAP','SAD','DIS','FEA']
+- `aud-cls=XXX`: result order: [model output with emotion X enhancement, faceformer output, no emotion output]
+- `emo-ist`: generate video with varying emotions and intensities, see `emo_ist` in `sample_configs`
 
-## Experiments
+# Experiments
 
 **test loss in VOCASET**
 
