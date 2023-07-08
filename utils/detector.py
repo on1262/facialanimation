@@ -22,7 +22,7 @@ class FANDetector():
         self.max_thread = 1
         self.scale = scale
         self.resolution_inp = crop_size
-        self.model = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D,
+        self.model = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D,
                                                   device=str(device),
                                                   flip_input=False,
                                                   face_detector=self.face_detector,

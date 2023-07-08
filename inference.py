@@ -130,14 +130,14 @@ class Inference():
                 elif 'audio' in conf:
                     state_list =  ['_et_speech_driven','no_emo']
                 elif 'aud-cls' in conf:
-                    state_list = [conf.split('=')[-1], 'faceformer', 'no_emo',] # e.g. conf.split('=')[-1] = 'HAP'
+                    state_list = [conf.split('=')[-1], 'faceformer', 'fusion'] # e.g. conf.split('=')[-1] = 'HAP'
                 elif 'emo-cls' in conf:
                     state_list = self.emo_cls
                 elif 'emo-ist' in conf:
                     state_list = self.infer_conf['emo_ist']
                 
                 for state in state_list:
-                    if state == 'faceformer':
+                    if state == 'faceformer' or state == 'fusion':
                         out_dict = {}
                         code_dict = {key:p[[0],:] for key, p in data['code_dict'][0].items()}
                         emoca_out = self.emoca.decode(code_dict, {'verts'}, target_device=self.device) # generate template with all code zero
@@ -152,7 +152,10 @@ class Inference():
                                 delta_fv = fv[[-1],...].repeat((data['seqs_len'] - fv.size(0), 1, 1))
                                 fv = torch.cat([fv, delta_fv])
                             data['code_dict'][0]['decode_verts'] = fv
-                            out_dict['imgs'] = self.emoca.decode(data['code_dict'], {'geo', 'decode_verts'}, target_device=self.device)['geometry_coarse']
+                            if state != 'fusion':
+                                out_dict['imgs'] = self.emoca.decode(data['code_dict'], {'geo', 'decode_verts'}, target_device=self.device)['geometry_coarse']
+                            else:
+                                fusion_fv = fv
                     elif state == '_et_speech_driven': # emotion information will be predicted from audio
                         data['emo_logits_conf'] = ['use']
                         data['emo_logits'] = None
@@ -183,9 +186,16 @@ class Inference():
                         if 'tex' in conf: # use texture extracted from input video
                             out_dict['imgs'] = self.emoca.decode(
                                 out_dict['code_dict'], {'coarse'}, target_device=self.device)['output_images_coarse']
-                        else:
+                        elif state != 'fusion':
                             emoca_out = self.emoca.decode(out_dict['code_dict'], {'geo'}, target_device=self.device)
                             out_dict['imgs'] = emoca_out['geometry_coarse']
+                        else:
+                            fusion_codedict = out_dict['code_dict']
+                            fusion_codedict[0]['posecode'][:, 3] = 0
+                            out_verts = self.emoca.decode(fusion_codedict, {'verts'}, target_device=self.device)['verts']
+                            out_verts = fusion_fv + out_verts - out_verts[0, ...]
+                            data['code_dict'][0]['decode_verts'] = out_verts
+                            out_dict['imgs'] = self.emoca.decode(data['code_dict'], {'geo', 'decode_verts'}, target_device=self.device)['geometry_coarse']
 
                     out_dict['imgs'] = convert_img(out_dict['imgs'], 'emoca', 'tvsave').to('cpu')
                     if state == '_et_ori':
@@ -194,6 +204,8 @@ class Inference():
                         out_ff = out_dict['imgs']
                     elif state == 'no_emo':
                         out_no_emo = out_dict['imgs']
+                    elif state == 'fusion':
+                        out_fusion = out_dict['imgs']
                     elif state in self.emo_cls:
                         out_et_emo[state] = out_dict['imgs']
                     elif state == '_et_speech_driven':
@@ -209,7 +221,7 @@ class Inference():
                     elif 'emo-cls' in conf:
                         frame_img = [out_et_emo[key][i,...] for key in state_list]
                     elif 'aud-cls' in conf:
-                        frame_img = [out_et_emo[state_list[0]][i,...], out_ff[i, ...], out_no_emo[i,...]]
+                        frame_img = [out_et_emo[state_list[0]][i,...], out_ff[i, ...], out_fusion[i,...]]
                     elif 'emo-ist' in conf:
                         frame_img = [out_et_emo[key][i,...] for key in state_list]
                     save_img(torch.cat(frame_img, -1), os.path.join(sample_cache_dir, '%04d.jpg' % i))
