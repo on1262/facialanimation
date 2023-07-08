@@ -266,8 +266,8 @@ class Model(nn.Module):
                 intensity = GBL_CONF['inference']['inference_mode']['default_intensity'] # 0 to 1
             else:
                 intensity = in_dict['intensity']
-            in_dict['emo_logits'][:, :] -= intensity
-            in_dict['emo_logits'][:, emo_index] += (4*intensity)
+            in_dict['emo_logits'][:, :] = -1
+            in_dict['emo_logits'][:, emo_index] = (4*intensity)
             in_dict['emo_logits_conf'] = ['use']
         
         in_dict['smooth'] = False if 'smooth' not in in_dict.keys() or in_dict['smooth'] != True else True

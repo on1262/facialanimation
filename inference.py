@@ -192,8 +192,16 @@ class Inference():
                         else:
                             fusion_codedict = out_dict['code_dict']
                             fusion_codedict[0]['posecode'][:, 3] = 0
+                            fusion_codedict[0]['expcode'][0,:] = 0
                             out_verts = self.emoca.decode(fusion_codedict, {'verts'}, target_device=self.device)['verts']
-                            out_verts = fusion_fv + out_verts - out_verts[0, ...]
+                            out_verts, start_vert = torch.cat([out_verts[[1],...], out_verts[1:,...]], dim=0), out_verts[0, ...]
+
+                            mouth_open = torch.norm(fusion_fv[:, 3547, :] - fusion_fv[:, 3513, :], dim=-1)
+                            m_min, m_max = torch.min(mouth_open, dim=0).values, torch.max(mouth_open, dim=0).values
+                            mouth_open = (mouth_open - m_min) / (0.014 - 0.006) # 0=close, 1=totally open
+                            mouth_open = torch.sqrt(mouth_open)[:, None, None] # seq_len, 1, 1
+
+                            out_verts = fusion_fv + (out_verts - start_vert) * mouth_open
                             data['code_dict'][0]['decode_verts'] = out_verts
                             out_dict['imgs'] = self.emoca.decode(data['code_dict'], {'geo', 'decode_verts'}, target_device=self.device)['geometry_coarse']
 

@@ -66,7 +66,7 @@ infer_dataset: # generate a temporal dataset based on inference input
 #    'AUD_voca_1':'audio',
 #    'AUD_voca_2':'emo-cls',
 #    'AUD_F6_01_cut':'audio',
-     'AUD_demo_2_happy' : 'aud-cls=HAP',
+     'AUD_demo_2_happy' : 'aud-cls=DIS',
 #    'AUD_demo_2_angry' : 'aud-cls=ANG',
 #    'AUD_demo_2_sad' : 'aud-cls=SAD'
   }

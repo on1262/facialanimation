@@ -782,15 +782,7 @@ class TESTDataset(Dataset):
             name = file.split('.')[0]
             if file.split('.')[-1] not in ['mp4', 'flv', 'wav']:
                 continue
-            # try fetch emo label
-            label = None
-            for emo_label in self.emo_set:
-                if emo_label in name:
-                    label = emo_label
-            if label is not None: # avoid bad data
-                self.data_list.append({'name':name, 'emo_label':torch.LongTensor(data=[label]).squeeze(), 'path':os.path.join(self.in_dir, file)})
-            else:
-                self.data_list.append({'name':name, 'path':os.path.join(self.in_dir, file)})
+            self.data_list.append({'name':name, 'path':os.path.join(self.in_dir, file)})
         
         print('TEST: load ', len(self.data_list), ' samples')
     
