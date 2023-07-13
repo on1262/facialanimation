@@ -59,6 +59,8 @@ third_party
 
 ## Training
 
+**training code is not available now**
+
 - prepare datasets and 3rd packages following above instructions.
 - run fitting algorithm for VOCASET
 - run dataset caching scripts(uncomment the line under `make_dataset_cache` in `main.sh`)
@@ -66,15 +68,18 @@ third_party
 - adjust `train_minibatch` in `config/trainer.yml`, change `model_name` if you want to train another model.
 - back to project folder, run `python -u main.py --mode train`
 
-
-
 ## Inference
 
-- download model weights and 3rd models (link is not available here)
+**Read this before running inference**
+
+I uploaded a `fusion` mode in inference scripts. It is only available in `aud-cls=XXX (HAP, DIS, FEA .etc)` mode (see inference configurations section) now. This method is able to disentangle lip movement and expression in output. It is actually a trick but I found it works well. Since lip movement and expression can be separately generated, the design of origin model is out of date. I will only keep inference mode available before I update the model. If you want to see the output of `fusion` mode, set sample configuration to `aud-cls=FEA` (or other labels), the rightmost is fusion output.
+
+- download model weights and 3rd models from this link: https://1drv.ms/f/s!AomgXFHJMxuGk2jrH5UqrbYe5mTY?e=8VG12t
+- put `date-Nov-/.../.pth` to tf_emo_4/saved_model
+- `emoca_basic.ckpt` is the same as original EMOCA model weights (just name changed). Check MD5: 06a8d6bf2d9373ac2280a1bc7cf1acb4
 - make sure that all files in `config/global.yml` are under correct paths
 - input files for inference should be placed at `inference/input`
 - change sample configs in `config/inference.yml/infer_dataset`, add custom input files and inference configs for each input.
-- change `inference_mode/model_name` in `config/inference.yml` if you want to test another model.
 - back to project folder, run `python -u inference.py --mode inference`
 - get inference output at `inference/output`
 
