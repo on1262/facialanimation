@@ -2,6 +2,8 @@
 
 Source code for: [Expressive Speech-driven Facial Animation with controllable emotions](https://arxiv.org/abs/2301.02008)
 
+Supplementary Video: [https://1drv.ms/v/s!AomgXFHJMxuGlDrVh5mwV1z_FFYv?e=bBcc4C](https://1drv.ms/v/s!AomgXFHJMxuGlDrVh5mwV1z_FFYv?e=bBcc4C)
+
 **This repository is under construction now**
 
 Update:
